@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jump Quest</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+        #sound-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #00FF00;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 1000;
+        }
+        #sound-toggle:hover {
+            background: #00DD00;
+        }
+    </style>
+</head>
+<body>
+    <button id="sound-toggle">🔊 Sound ON</button>
+    <div id="game-container"></div>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <script>
+        // Sound Manager using Web Audio API
+        class SoundManager {
+            constructor() {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.enabled = localStorage.getItem('soundEnabled') !== 'false';
+                this.updateButton();
+
+                // Setup toggle button
+                document.getElementById('sound-toggle').addEventListener('click', () => {
+                    this.enabled = !this.enabled;
+                    localStorage.setItem('soundEnabled', this.enabled);
+                    this.updateButton();
+                    if (this.enabled && this.audioContext.state === 'suspended') {
+                        this.audioContext.resume();
+                    }
+                });
+            }
+
+            updateButton() {
+                const btn = document.getElementById('sound-toggle');
+                btn.textContent = this.enabled ? '🔊 Sound ON' : '🔇 Sound OFF';
+                btn.style.background = this.enabled ? '#00FF00' : '#FF0000';
+            }
+
+            playJump() {
+                if (!this.enabled) return;
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(600, this.audioContext.currentTime + 0.1);
+
+                gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
+
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 0.1);
+            }
+
+            playDoubleJump() {
+                if (!this.enabled) return;
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                oscillator.frequency.setValueAtTime(600, this.audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(900, this.audioContext.currentTime + 0.15);
+
+                gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
+
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 0.15);
+            }
+
+            playHit() {
+                if (!this.enabled) return;
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+
+                oscillator.type = 'sawtooth';
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                oscillator.frequency.setValueAtTime(200, this.audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(50, this.audioContext.currentTime + 0.2);
+
+                gainNode.gain.setValueAtTime(0.4, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 0.2);
+            }
+
+            playLevelComplete() {
+                if (!this.enabled) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C, E, G, C
+                notes.forEach((freq, i) => {
+                    const oscillator = this.audioContext.createOscillator();
+                    const gainNode = this.audioContext.createGain();
+
+                    oscillator.connect(gainNode);
+                    gainNode.connect(this.audioContext.destination);
+
+                    oscillator.frequency.value = freq;
+                    gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime + i * 0.15);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + i * 0.15 + 0.3);
+
+                    oscillator.start(this.audioContext.currentTime + i * 0.15);
+                    oscillator.stop(this.audioContext.currentTime + i * 0.15 + 0.3);
+                });
+            }
+
+            playGameOver() {
+                if (!this.enabled) return;
+                const notes = [392, 349.23, 329.63, 293.66]; // G, F, E, D (descending)
+                notes.forEach((freq, i) => {
+                    const oscillator = this.audioContext.createOscillator();
+                    const gainNode = this.audioContext.createGain();
+
+                    oscillator.type = 'triangle';
+                    oscillator.connect(gainNode);
+                    gainNode.connect(this.audioContext.destination);
+
+                    oscillator.frequency.value = freq;
+                    gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime + i * 0.2);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + i * 0.2 + 0.4);
+
+                    oscillator.start(this.audioContext.currentTime + i * 0.2);
+                    oscillator.stop(this.audioContext.currentTime + i * 0.2 + 0.4);
+                });
+            }
+
+            playClick() {
+                if (!this.enabled) return;
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                oscillator.frequency.value = 800;
+                gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.05);
+
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 0.05);
+            }
+
+            playBackgroundMusic(theme) {
+                if (!this.enabled) return;
+                // Stop any existing music
+                if (this.musicInterval) {
+                    clearInterval(this.musicInterval);
+                }
+
+                const melodies = {
+                    forest: [523.25, 587.33, 659.25, 698.46, 783.99, 698.46, 659.25, 587.33], // C major scale
+                    desert: [440, 493.88, 523.25, 587.33, 523.25, 493.88, 440, 392], // A minor
+                    ice: [659.25, 698.46, 783.99, 880, 783.99, 698.46, 659.25, 587.33], // High melody
+                    volcano: [329.63, 349.23, 392, 329.63, 293.66, 329.63, 349.23, 293.66], // Dark/low
+                    sky: [783.99, 880, 987.77, 1046.50, 987.77, 880, 783.99, 698.46], // Airy/high
+                    neon: [523.25, 659.25, 783.99, 659.25, 523.25, 659.25, 783.99, 1046.50], // Electronic
+                    swamp: [293.66, 311.13, 329.63, 349.23, 329.63, 311.13, 293.66, 261.63], // Eerie
+                    crystal: [659.25, 783.99, 880, 1046.50, 880, 783.99, 659.25, 523.25], // Magical
+                    space: [523.25, 698.46, 880, 1046.50, 880, 698.46, 523.25, 392] // Cosmic
+                };
+
+                const melody = melodies[theme] || melodies.forest;
+                let noteIndex = 0;
+
+                this.musicInterval = setInterval(() => {
+                    if (!this.enabled) return;
+
+                    const oscillator = this.audioContext.createOscillator();
+                    const gainNode = this.audioContext.createGain();
+
+                    oscillator.type = 'sine';
+                    oscillator.connect(gainNode);
+                    gainNode.connect(this.audioContext.destination);
+
+                    oscillator.frequency.value = melody[noteIndex];
+                    gainNode.gain.setValueAtTime(0.05, this.audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.4);
+
+                    oscillator.start(this.audioContext.currentTime);
+                    oscillator.stop(this.audioContext.currentTime + 0.4);
+
+                    noteIndex = (noteIndex + 1) % melody.length;
+                }, 500);
+            }
+
+            stopBackgroundMusic() {
+                if (this.musicInterval) {
+                    clearInterval(this.musicInterval);
+                    this.musicInterval = null;
+                }
+            }
+        }
+
+        const soundManager = new SoundManager();
+
+        // Global game data with localStorage persistence
+        const GameData = {
+            selectedSkin: localStorage.getItem('selectedSkin') || 'red_square',
+            highScore: parseInt(localStorage.getItem('highScore')) || 0,
+            unlockedSkins: JSON.parse(localStorage.getItem('unlockedSkins')) || ['red_square'],
+            completedLevels: JSON.parse(localStorage.getItem('completedLevels')) || [],
+            currentLevel: 1,
+
+            levels: {
+                1: { name: 'Forest Realm', theme: { sky: '#87CEEB', ground: '#8B4513', obstacle: '#228B22' }, length: 1500, obstacles: [300, 500, 700, 900, 1200], background: 'forest' },
+                2: { name: 'Desert Wasteland', theme: { sky: '#FFE4B5', ground: '#DEB887', obstacle: '#CD853F' }, length: 1800, obstacles: [300, 550, 750, 1000, 1250, 1500], background: 'desert' },
+                3: { name: 'Ice Mountains', theme: { sky: '#B0E0E6', ground: '#E0FFFF', obstacle: '#87CEEB' }, length: 2000, obstacles: [250, 500, 700, 950, 1200, 1450, 1700], background: 'ice' },
+                4: { name: 'Volcanic Caves', theme: { sky: '#2F4F4F', ground: '#696969', obstacle: '#DC143C' }, length: 2200, obstacles: [300, 500, 700, 900, 1100, 1400, 1700, 1950], background: 'volcano' },
+                5: { name: 'Sky Kingdom', theme: { sky: '#87CEFA', ground: '#FFFAF0', obstacle: '#DDA0DD' }, length: 2400, obstacles: [250, 480, 680, 900, 1150, 1380, 1620, 1850, 2100], background: 'sky' },
+                6: { name: 'Neon City', theme: { sky: '#191970', ground: '#2F4F4F', obstacle: '#FF1493' }, length: 2600, obstacles: [300, 520, 740, 960, 1180, 1400, 1650, 1900, 2150, 2400], background: 'neon' },
+                7: { name: 'Toxic Swamp', theme: { sky: '#556B2F', ground: '#6B8E23', obstacle: '#9ACD32' }, length: 2800, obstacles: [280, 500, 720, 940, 1160, 1400, 1640, 1880, 2140, 2400, 2600], background: 'swamp' },
+                8: { name: 'Crystal Caves', theme: { sky: '#483D8B', ground: '#9370DB', obstacle: '#BA55D3' }, length: 3000, obstacles: [300, 500, 720, 920, 1140, 1380, 1600, 1840, 2080, 2340, 2600, 2850], background: 'crystal' },
+                9: { name: 'Final Dimension', theme: { sky: '#000000', ground: '#1C1C1C', obstacle: '#FFD700' }, length: 3500, obstacles: [250, 450, 650, 850, 1050, 1280, 1510, 1740, 1970, 2200, 2450, 2700, 2950, 3200], background: 'space' },
+                10: { name: '👹 BOSS BATTLE 👹', theme: { sky: '#330000', ground: '#660000', obstacle: '#FF0000' }, length: 4000, obstacles: [], background: 'boss', isBoss: true }
+            },
+
+            skins: {
+                'red_square': { name: 'Classic Red', color: 0xFF0000, shape: 'square', unlockScore: 0 },
+                'blue_circle': { name: 'Blue Blob', color: 0x0000FF, shape: 'circle', unlockScore: 50 },
+                'green_square': { name: 'Green Machine', color: 0x00FF00, shape: 'square', unlockScore: 100 },
+                'yellow_triangle': { name: 'Yellow Arrow', color: 0xFFFF00, shape: 'triangle', unlockScore: 150 },
+                'purple_circle': { name: 'Purple Orb', color: 0xFF00FF, shape: 'circle', unlockScore: 200 },
+                'orange_square': { name: 'Orange Box', color: 0xFF8800, shape: 'square', unlockScore: 300 },
+                'cyan_circle': { name: 'Cyan Sphere', color: 0x00FFFF, shape: 'circle', unlockScore: 400 },
+                'pink_square': { name: 'Pink Cube', color: 0xFF69B4, shape: 'square', unlockScore: 500 },
+                'boss_demon': { name: '👹 Demon Lord', color: 0x8B0000, shape: 'square', unlockScore: -1, requiresBossDefeat: true }
+            },
+
+            saveData() {
+                localStorage.setItem('selectedSkin', this.selectedSkin);
+                localStorage.setItem('highScore', this.highScore);
+                localStorage.setItem('unlockedSkins', JSON.stringify(this.unlockedSkins));
+                localStorage.setItem('completedLevels', JSON.stringify(this.completedLevels));
+            },
+
+            updateHighScore(score) {
+                if (score > this.highScore) {
+                    this.highScore = score;
+                    this.checkUnlocks(score);
+                    this.saveData();
+                    return true;
+                }
+                return false;
+            },
+
+            completeLevel(levelNum) {
+                if (!this.completedLevels.includes(levelNum)) {
+                    this.completedLevels.push(levelNum);
+                    this.saveData();
+                }
+            },
+
+            isLevelUnlocked(levelNum) {
+                if (levelNum === 1) return true;
+                return this.completedLevels.includes(levelNum - 1);
+            },
+
+            checkUnlocks(score) {
+                const newUnlocks = [];
+                Object.keys(this.skins).forEach(skinKey => {
+                    const skin = this.skins[skinKey];
+                    if (score >= skin.unlockScore && !this.unlockedSkins.includes(skinKey)) {
+                        this.unlockedSkins.push(skinKey);
+                        newUnlocks.push(skin.name);
+                    }
+                });
+                return newUnlocks;
+            },
+
+            isSkinUnlocked(skinKey) {
+                return this.unlockedSkins.includes(skinKey);
+            },
+
+            unlockBossSkin() {
+                if (!this.unlockedSkins.includes('boss_demon')) {
+                    this.unlockedSkins.push('boss_demon');
+                    this.saveData();
+                    return true;
+                }
+                return false;
+            }
+        };
+
+        // MENU SCENE
+        class MenuScene extends Phaser.Scene {
+            constructor() {
+                super('MenuScene');
+            }
+
+            create() {
+                soundManager.stopBackgroundMusic();
+                this.cameras.main.setBackgroundColor('#87CEEB');
+
+                this.add.text(400, 70, 'JUMP QUEST', {
+                    fontSize: '72px',
+                    fill: '#FF0000',
+                    fontStyle: 'bold',
+                    stroke: '#000',
+                    strokeThickness: 8
+                }).setOrigin(0.5);
+
+                const totalLevels = Object.keys(GameData.levels).length;
+                const completedCount = GameData.completedLevels.length;
+
+                this.add.text(400, 150, 'Levels Completed: ' + completedCount + '/' + totalLevels, {
+                    fontSize: '20px',
+                    fill: '#FFD700',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                this.add.text(400, 180, 'High Score: ' + GameData.highScore, {
+                    fontSize: '18px',
+                    fill: '#00FF00',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                const playButton = this.add.rectangle(400, 260, 220, 60, 0x00FF00);
+                this.add.text(400, 260, 'PLAY LEVELS', {
+                    fontSize: '28px',
+                    fill: '#000',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                playButton.setInteractive({ useHandCursor: true });
+                playButton.on('pointerover', () => { playButton.fillColor = 0x00DD00; });
+                playButton.on('pointerout', () => { playButton.fillColor = 0x00FF00; });
+                playButton.on('pointerdown', () => {
+                    soundManager.playClick();
+                    this.scene.start('LevelSelectScene');
+                });
+
+                const skinsButton = this.add.rectangle(400, 340, 220, 60, 0xFFAA00);
+                this.add.text(400, 340, 'CHOOSE SKIN', {
+                    fontSize: '28px',
+                    fill: '#000',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                skinsButton.setInteractive({ useHandCursor: true });
+                skinsButton.on('pointerover', () => { skinsButton.fillColor = 0xFF8800; });
+                skinsButton.on('pointerout', () => { skinsButton.fillColor = 0xFFAA00; });
+                skinsButton.on('pointerdown', () => {
+                    soundManager.playClick();
+                    this.scene.start('SkinsScene');
+                });
+
+                this.add.text(400, 430, 'HOW TO PLAY', {
+                    fontSize: '20px',
+                    fill: '#000',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                this.add.text(400, 460, 'Levels 1-3: Arrow Keys to Move  |  SPACE: Jump', {
+                    fontSize: '13px',
+                    fill: '#000'
+                }).setOrigin(0.5);
+
+                this.add.text(400, 482, 'Levels 4-9: AUTO-RUN! Just Jump to Survive!', {
+                    fontSize: '13px',
+                    fill: '#FF6600',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                this.add.text(400, 507, 'Reach the end of each level!', {
+                    fontSize: '14px',
+                    fill: '#00FF00',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                this.add.text(400, 530, 'Level 10: 👹 Epic Boss Battle! 👹', {
+                    fontSize: '13px',
+                    fill: '#FF0000',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                this.add.text(400, 550, 'Jump on the boss to damage it!', {
+                    fontSize: '12px',
+                    fill: '#FFD700'
+                }).setOrigin(0.5);
+
+                const currentSkin = GameData.skins[GameData.selectedSkin];
+                this.add.text(400, 580, 'Current Skin: ' + currentSkin.name, {
+                    fontSize: '12px',
+                    fill: '#666'
+                }).setOrigin(0.5);
+
+                this.input.keyboard.once('keydown-SPACE', () => {
+                    soundManager.playClick();
+                    this.scene.start('LevelSelectScene');
+                });
+            }
+        }
+
+        // LEVEL SELECT SCENE
+        class LevelSelectScene extends Phaser.Scene {
+            constructor() {
+                super('LevelSelectScene');
+            }
+
+            create() {
+                this.cameras.main.setBackgroundColor('#87CEEB');
+
+                this.add.text(400, 40, 'SELECT LEVEL', {
+                    fontSize: '48px',
+                    fill: '#000',
+                    fontStyle: 'bold',
+                    stroke: '#FFF',
+                    strokeThickness: 4
+                }).setOrigin(0.5);
+
+                const levelKeys = Object.keys(GameData.levels);
+                const startX = 200;
+                const startY = 120;
+                const spacingX = 130;
+                const spacingY = 140;
+
+                levelKeys.forEach((levelNum, index) => {
+                    const level = GameData.levels[levelNum];
+                    const col = index % 4;
+                    const row = Math.floor(index / 4);
+                    const x = startX + col * spacingX;
+                    const y = startY + row * spacingY;
+
+                    const isUnlocked = GameData.isLevelUnlocked(parseInt(levelNum));
+                    const isCompleted = GameData.completedLevels.includes(parseInt(levelNum));
+
+                    const bgColor = isCompleted ? 0xFFD700 : (isUnlocked ? 0x00FF00 : 0x666666);
+                    const bg = this.add.rectangle(x, y, 110, 110, bgColor, isUnlocked ? 0.3 : 0.5);
+
+                    const numberBg = this.add.circle(x, y - 15, 30, isUnlocked ? 0xFFFFFF : 0x333333);
+                    this.add.text(x, y - 15, levelNum, {
+                        fontSize: '32px',
+                        fill: '#000',
+                        fontStyle: 'bold'
+                    }).setOrigin(0.5);
+
+                    if (isCompleted) {
+                        this.add.text(x + 35, y - 45, '✓', {
+                            fontSize: '24px',
+                            fill: '#00FF00',
+                            fontStyle: 'bold'
+                        }).setOrigin(0.5);
+                    }
+
+                    if (!isUnlocked) {
+                        this.add.text(x, y - 15, '🔒', { fontSize: '24px' }).setOrigin(0.5);
+                    }
+
+                    this.add.text(x, y + 30, level.name, {
+                        fontSize: '11px',
+                        fill: '#000',
+                        fontStyle: 'bold',
+                        align: 'center',
+                        wordWrap: { width: 100 }
+                    }).setOrigin(0.5);
+
+                    if (isUnlocked) {
+                        bg.setInteractive({ useHandCursor: true });
+                        bg.on('pointerover', () => { bg.alpha = 0.6; });
+                        bg.on('pointerout', () => { bg.alpha = 0.3; });
+                        bg.on('pointerdown', () => {
+                            soundManager.playClick();
+                            GameData.currentLevel = parseInt(levelNum);
+                            this.scene.start('GameScene');
+                        });
+                    }
+                });
+
+                const backButton = this.add.rectangle(400, 540, 180, 50, 0xFF0000);
+                this.add.text(400, 540, 'BACK TO MENU', {
+                    fontSize: '24px',
+                    fill: '#FFF',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                backButton.setInteractive({ useHandCursor: true });
+                backButton.on('pointerover', () => { backButton.fillColor = 0xDD0000; });
+                backButton.on('pointerout', () => { backButton.fillColor = 0xFF0000; });
+                backButton.on('pointerdown', () => {
+                    soundManager.playClick();
+                    this.scene.start('MenuScene');
+                });
+
+                this.input.keyboard.once('keydown-ESC', () => {
+                    soundManager.playClick();
+                    this.scene.start('MenuScene');
+                });
+            }
+        }
+
+        // SKINS SCENE (abbreviated for space)
+        class SkinsScene extends Phaser.Scene {
+            constructor() {
+                super('SkinsScene');
+            }
+
+            create() {
+                this.cameras.main.setBackgroundColor('#87CEEB');
+
+                this.add.text(400, 40, 'CHOOSE YOUR SKIN', {
+                    fontSize: '42px',
+                    fill: '#000',
+                    fontStyle: 'bold',
+                    stroke: '#FFF',
+                    strokeThickness: 4
+                }).setOrigin(0.5);
+
+                this.add.text(400, 85, 'High Score: ' + GameData.highScore, {
+                    fontSize: '18px',
+                    fill: '#FFD700',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                const skinKeys = Object.keys(GameData.skins);
+                const startX = 150;
+                const startY = 140;
+                const spacing = 150;
+
+                skinKeys.forEach((skinKey, index) => {
+                    const skin = GameData.skins[skinKey];
+                    const col = index % 4;
+                    const row = Math.floor(index / 4);
+                    const x = startX + col * spacing;
+                    const y = startY + row * spacing;
+
+                    const isUnlocked = GameData.isSkinUnlocked(skinKey);
+                    const isSelected = skinKey === GameData.selectedSkin;
+
+                    const bgColor = isUnlocked ? 0xFFFFFF : 0x666666;
+                    const bg = this.add.rectangle(x, y, 120, 120, bgColor, isUnlocked ? 0.3 : 0.5);
+
+                    if (isSelected && isUnlocked) {
+                        const highlight = this.add.rectangle(x, y, 130, 130);
+                        highlight.setStrokeStyle(4, 0xFFFF00);
+                    }
+
+                    const skinColor = isUnlocked ? skin.color : 0x333333;
+
+                    if (skin.shape === 'square') {
+                        this.add.rectangle(x, y - 20, 40, 40, skinColor);
+
+                        // Add demon face for boss_demon skin
+                        if (skinKey === 'boss_demon' && isUnlocked) {
+                            // Demon horns
+                            this.add.triangle(x - 18, y - 38, 0, -8, -5, 8, 5, 8, 0x000000);
+                            this.add.triangle(x + 18, y - 38, 0, -8, -5, 8, 5, 8, 0x000000);
+
+                            // Eyes (glowing red)
+                            this.add.circle(x - 10, y - 25, 4, 0xFF0000);
+                            this.add.circle(x + 10, y - 25, 4, 0xFF0000);
+
+                            // Evil grin mouth
+                            const mouth = this.add.arc(x, y - 15, 10, 0, 180, false, 0x000000);
+                            mouth.setStrokeStyle(2, 0x000000);
+                            mouth.isFilled = false;
+                        }
+                    } else if (skin.shape === 'circle') {
+                        this.add.circle(x, y - 20, 20, skinColor);
+                    } else if (skin.shape === 'triangle') {
+                        this.add.triangle(x, y - 20, 0, 20, -20, -20, 20, -20, skinColor);
+                    }
+
+                    if (!isUnlocked) {
+                        this.add.text(x, y - 20, '🔒', { fontSize: '30px' }).setOrigin(0.5);
+                    }
+
+                    this.add.text(x, y + 20, skin.name, {
+                        fontSize: '11px',
+                        fill: '#000',
+                        fontStyle: 'bold',
+                        align: 'center',
+                        wordWrap: { width: 110 }
+                    }).setOrigin(0.5);
+
+                    if (!isUnlocked) {
+                        if (skin.requiresBossDefeat) {
+                            this.add.text(x, y + 38, 'Defeat Boss', {
+                                fontSize: '10px',
+                                fill: '#FF0000',
+                                fontStyle: 'bold'
+                            }).setOrigin(0.5);
+                        } else {
+                            this.add.text(x, y + 38, 'Score ' + skin.unlockScore, {
+                                fontSize: '10px',
+                                fill: '#FF0000',
+                                fontStyle: 'bold'
+                            }).setOrigin(0.5);
+                        }
+                    } else {
+                        this.add.text(x, y + 38, '✓ Unlocked', {
+                            fontSize: '10px',
+                            fill: '#00FF00',
+                            fontStyle: 'bold'
+                        }).setOrigin(0.5);
+                    }
+
+                    if (isUnlocked) {
+                        bg.setInteractive({ useHandCursor: true });
+                        bg.on('pointerover', () => { bg.alpha = 0.6; });
+                        bg.on('pointerout', () => { bg.alpha = 0.3; });
+                        bg.on('pointerdown', () => {
+                            soundManager.playClick();
+                            GameData.selectedSkin = skinKey;
+                            GameData.saveData();
+                            this.scene.restart();
+                        });
+                    }
+                });
+
+                const backButton = this.add.rectangle(400, 540, 180, 50, 0xFF0000);
+                this.add.text(400, 540, 'BACK TO MENU', {
+                    fontSize: '24px',
+                    fill: '#FFF',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+
+                backButton.setInteractive({ useHandCursor: true });
+                backButton.on('pointerover', () => { backButton.fillColor = 0xDD0000; });
+                backButton.on('pointerout', () => { backButton.fillColor = 0xFF0000; });
+                backButton.on('pointerdown', () => {
+                    soundManager.playClick();
+                    this.scene.start('MenuScene');
+                });
+
+                this.input.keyboard.once('keydown-ESC', () => {
+                    soundManager.playClick();
+                    this.scene.start('MenuScene');
+                });
+            }
+        }
+
+        // GAME SCENE (continuing in next part due to length...)
+        class GameScene extends Phaser.Scene {
+            constructor() {
+                super('GameScene');
+            }
+
+            create() {
+                this.levelData = GameData.levels[GameData.currentLevel];
+                const levelData = this.levelData;
+                const theme = levelData.theme;
+
+                // Start background music for this level
+                soundManager.playBackgroundMusic(levelData.background);
+
+                this.score = 0;
+                this.lives = 5;
+                this.playerSpeed = 300;
+                this.canDoubleJump = true;
+                this.hasDoubleJumped = false;
+                this.isGameOver = false;
+                this.levelCompleted = false;
+                this.isAutoRunner = GameData.currentLevel >= 4; // Auto-run from level 4 onwards
+
+                this.cameras.main.setBackgroundColor(theme.sky);
+                this.createBackground(levelData.background, levelData.length);
+                this.physics.world.setBounds(0, 0, levelData.length + 500, 600);
+
+                // Ground
+                this.ground = this.physics.add.staticGroup();
+                const groundTiles = Math.ceil((levelData.length + 500) / 80);
+                for (let i = 0; i < groundTiles; i++) {
+                    const groundTile = this.add.rectangle(i * 80, 580, 80, 40, parseInt(theme.ground.replace('#', '0x')));
+                    this.ground.add(groundTile);
+                }
+
+                // Finish line
+                this.finishLine = this.add.rectangle(levelData.length, 400, 20, 400, 0xFFD700);
+                this.physics.add.existing(this.finishLine, true);
+                this.add.text(levelData.length, 300, 'FINISH!', {
+                    fontSize: '48px',
+                    fill: '#FFD700',
+                    fontStyle: 'bold',
+                    stroke: '#000',
+                    strokeThickness: 4
+                }).setOrigin(0.5);
+
+                // Player
+                const selectedSkin = GameData.skins[GameData.selectedSkin];
+                if (selectedSkin.shape === 'square') {
+                    this.player = this.add.rectangle(100, 500, 30, 30, selectedSkin.color);
+                } else if (selectedSkin.shape === 'circle') {
+                    this.player = this.add.circle(100, 500, 15, selectedSkin.color);
+                } else if (selectedSkin.shape === 'triangle') {
+                    this.player = this.add.triangle(100, 500, 0, 15, -15, -15, 15, -15, selectedSkin.color);
+                }
+
+                this.physics.add.existing(this.player);
+                this.player.body.setCollideWorldBounds(true);
+                this.playerOriginalColor = selectedSkin.color;
+
+                // Add demon face if using boss_demon skin
+                this.playerFaceElements = [];
+                if (GameData.selectedSkin === 'boss_demon') {
+                    // Demon horns
+                    const hornLeft = this.add.triangle(this.player.x - 13, this.player.y - 17, 0, -6, -4, 6, 4, 6, 0x000000);
+                    const hornRight = this.add.triangle(this.player.x + 13, this.player.y - 17, 0, -6, -4, 6, 4, 6, 0x000000);
+
+                    // Eyes (glowing red)
+                    const eyeLeft = this.add.circle(this.player.x - 7, this.player.y - 5, 3, 0xFF0000);
+                    const eyeRight = this.add.circle(this.player.x + 7, this.player.y - 5, 3, 0xFF0000);
+
+                    // Evil grin mouth
+                    const mouth = this.add.arc(this.player.x, this.player.y + 5, 8, 0, 180, false, 0x000000);
+                    mouth.setStrokeStyle(2, 0x000000);
+                    mouth.isFilled = false;
+
+                    this.playerFaceElements = [hornLeft, hornRight, eyeLeft, eyeRight, mouth];
+                }
+
+                // Obstacles
+                this.obstacles = this.physics.add.staticGroup();
+                levelData.obstacles.forEach(xPos => {
+                    this.createObstacle(xPos, theme.obstacle);
+                });
+
+                // Boss mechanics for level 10
+                if (levelData.isBoss) {
+                    this.isBossLevel = true;
+                    this.bossProjectiles = this.physics.add.group();
+                    this.projectileTimer = 0;
+
+                    // Create boss (larger and more intimidating)
+                    this.boss = this.add.rectangle(levelData.length - 600, 300, 120, 120, 0xFF0000);
+                    this.physics.add.existing(this.boss);
+                    this.boss.body.setAllowGravity(false);
+                    this.boss.body.setImmovable(true);
+                    this.bossDirection = 1; // 1 = down, -1 = up
+                    this.bossSpeed = 250; // Increased speed for harder difficulty
+
+                    // Boss health (increased for harder difficulty)
+                    this.bossHealth = 20;
+                    this.bossMaxHealth = 20;
+
+                    // Boss eyes (adjusted for larger boss)
+                    this.bossEye1 = this.add.circle(this.boss.x - 30, this.boss.y - 20, 12, 0xFFFFFF);
+                    this.bossEye2 = this.add.circle(this.boss.x + 30, this.boss.y - 20, 12, 0xFFFFFF);
+                    this.bossPupil1 = this.add.circle(this.boss.x - 30, this.boss.y - 20, 6, 0x000000);
+                    this.bossPupil2 = this.add.circle(this.boss.x + 30, this.boss.y - 20, 6, 0x000000);
+
+                    // Boss health bar
+                    this.bossHealthBg = this.add.rectangle(400, 30, 300, 20, 0x660000).setScrollFactor(0);
+                    this.bossHealthBar = this.add.rectangle(400, 30, 300, 20, 0xFF0000).setScrollFactor(0);
+                    this.add.text(400, 30, '👹 BOSS HEALTH 👹', {
+                        fontSize: '14px',
+                        fill: '#FFF',
+                        fontStyle: 'bold'
+                    }).setOrigin(0.5).setScrollFactor(0);
+                } else {
+                    this.isBossLevel = false;
+                }
+
+                // Collisions
+                this.physics.add.collider(this.player, this.ground);
+                this.physics.add.overlap(this.player, this.obstacles, this.hitObstacle, null, this);
+                this.physics.add.overlap(this.player, this.finishLine, this.completeLevel, null, this);
+
+                if (this.isBossLevel) {
+                    this.physics.add.overlap(this.player, this.bossProjectiles, this.hitBossProjectile, null, this);
+                    this.physics.add.overlap(this.player, this.boss, this.hitBoss, null, this);
+                }
+
+                // Input
+                this.cursors = this.input.keyboard.createCursorKeys();
+                this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+                this.input.on('pointerdown', () => this.jump());
+
+                // Camera
+                this.cameras.main.setBounds(0, 0, levelData.length + 500, 600);
+                this.cameras.main.startFollow(this.player);
+
+                // UI
+                this.add.text(400, 16, 'Level ' + GameData.currentLevel + ': ' + levelData.name, {
+                    fontSize: '24px',
+                    fill: '#000',
+                    fontStyle: 'bold',
+                    stroke: '#FFF',
+                    strokeThickness: 3
+                }).setOrigin(0.5, 0).setScrollFactor(0);
+
+                this.livesText = this.add.text(16, 16, 'Lives: 5', {
+                    fontSize: '24px',
+                    fill: '#000',
+                    fontStyle: 'bold'
+                }).setScrollFactor(0);
+
+                this.scoreText = this.add.text(16, 50, 'Score: 0', {
+                    fontSize: '20px',
+                    fill: '#000',
+                    fontStyle: 'bold'
+                }).setScrollFactor(0);
+
+                // Show auto-runner indicator for levels 4+
+                if (this.isAutoRunner) {
+                    this.add.text(400, 50, '🏃 AUTO-RUN MODE - Jump to Survive! 🏃', {
+                        fontSize: '18px',
+                        fill: '#FF0000',
+                        fontStyle: 'bold',
+                        stroke: '#FFF',
+                        strokeThickness: 2
+                    }).setOrigin(0.5, 0).setScrollFactor(0);
+                }
+            }
+
+            createBackground(backgroundType, levelLength) {
+                switch(backgroundType) {
+                    case 'forest':
+                        for (let i = 0; i < levelLength / 200; i++) {
+                            const x = i * 200 + 100;
+                            this.add.rectangle(x, 520, 20, 80, 0x8B4513).setScrollFactor(0.5);
+                            this.add.circle(x, 480, 40, 0x228B22).setScrollFactor(0.5);
+                        }
+                        for (let i = 0; i < 5; i++) {
+                            const x = i * 400;
+                            this.add.ellipse(x + 100, 80, 80, 40, 0xFFFFFF, 0.7).setScrollFactor(0.2);
+                        }
+                        break;
+                    case 'desert':
+                        this.add.circle(700, 80, 50, 0xFFFF00).setScrollFactor(0.1);
+                        for (let i = 0; i < levelLength / 300; i++) {
+                            const x = i * 300;
+                            this.add.ellipse(x + 150, 500, 200, 100, 0xF4A460, 0.5).setScrollFactor(0.4);
+                        }
+                        for (let i = 0; i < levelLength / 400; i++) {
+                            const x = i * 400 + 200;
+                            this.add.rectangle(x, 520, 15, 60, 0x228B22).setScrollFactor(0.6);
+                        }
+                        break;
+                    case 'ice':
+                        for (let i = 0; i < 20; i++) {
+                            const x = Phaser.Math.Between(0, 800);
+                            const y = Phaser.Math.Between(50, 300);
+                            this.add.star(x, y, 6, 3, 6, 0xFFFFFF).setScrollFactor(0.3);
+                        }
+                        for (let i = 0; i < 5; i++) {
+                            const x = i * 300;
+                            this.add.triangle(x + 150, 550, 0, 0, -100, 200, 100, 200, 0xE0FFFF, 0.6).setScrollFactor(0.3);
+                        }
+                        break;
+                    case 'volcano':
+                        for (let i = 0; i < levelLength / 200; i++) {
+                            const x = i * 200;
+                            this.add.circle(x, 560, 30, 0xFF4500, 0.3).setScrollFactor(0.8);
+                        }
+                        for (let i = 0; i < 10; i++) {
+                            const x = Phaser.Math.Between(0, 800);
+                            const y = Phaser.Math.Between(50, 300);
+                            this.add.circle(x, y, 20, 0x696969, 0.4).setScrollFactor(0.2);
+                        }
+                        for (let i = 0; i < levelLength / 350; i++) {
+                            const x = i * 350 + 100;
+                            this.add.triangle(x, 550, 0, 0, -40, 100, 40, 100, 0x2F4F4F, 0.7).setScrollFactor(0.5);
+                        }
+                        break;
+                    case 'sky':
+                        for (let i = 0; i < levelLength / 150; i++) {
+                            const x = i * 150;
+                            const y = Phaser.Math.Between(100, 400);
+                            this.add.ellipse(x, y, 120, 60, 0xFFFFFF, 0.8).setScrollFactor(0.4);
+                        }
+                        for (let i = 0; i < 8; i++) {
+                            const x = i * 200 + 50;
+                            const y = Phaser.Math.Between(80, 250);
+                            this.add.text(x, y, 'V', { fontSize: '20px', fill: '#000' }).setScrollFactor(0.3);
+                        }
+                        const colors = [0xFF0000, 0xFF7F00, 0xFFFF00, 0x00FF00, 0x0000FF, 0x4B0082, 0x9400D3];
+                        for (let i = 0; i < 7; i++) {
+                            this.add.arc(400, 600, 200 + i * 10, 180, 0, false, colors[i], 0.3).setScrollFactor(0.1);
+                        }
+                        break;
+                    case 'neon':
+                        for (let i = 0; i < levelLength / 200; i++) {
+                            const x = i * 200;
+                            const height = Phaser.Math.Between(150, 350);
+                            this.add.rectangle(x + 100, 550 - height/2, 80, height, 0x1C1C1C, 0.8).setScrollFactor(0.6);
+                            for (let w = 0; w < 5; w++) {
+                                const windowY = 550 - height + w * 40 + 20;
+                                this.add.rectangle(x + 90, windowY, 15, 15, 0xFFFF00, 0.8).setScrollFactor(0.6);
+                                this.add.rectangle(x + 110, windowY, 15, 15, 0xFF00FF, 0.8).setScrollFactor(0.6);
+                            }
+                        }
+                        for (let i = 0; i < 30; i++) {
+                            const x = Phaser.Math.Between(0, levelLength);
+                            const y = Phaser.Math.Between(20, 200);
+                            this.add.star(x, y, 5, 2, 4, 0xFFFFFF).setScrollFactor(0.1);
+                        }
+                        break;
+                    case 'swamp':
+                        for (let i = 0; i < levelLength / 250; i++) {
+                            const x = i * 250 + 120;
+                            this.add.rectangle(x, 490, 15, 120, 0x4A4A4A).setScrollFactor(0.7);
+                        }
+                        for (let i = 0; i < 8; i++) {
+                            const x = i * 200;
+                            this.add.ellipse(x + 100, 450, 150, 60, 0x9ACD32, 0.2).setScrollFactor(0.5);
+                        }
+                        break;
+                    case 'crystal':
+                        for (let i = 0; i < levelLength / 200; i++) {
+                            const x = i * 200 + 100;
+                            const y = Phaser.Math.Between(350, 500);
+                            const size = Phaser.Math.Between(30, 60);
+                            this.add.triangle(x, y, 0, -size, -size/2, size/2, size/2, size/2, 0xBA55D3, 0.6).setScrollFactor(0.5);
+                        }
+                        for (let i = 0; i < 25; i++) {
+                            const x = Phaser.Math.Between(0, levelLength);
+                            const y = Phaser.Math.Between(100, 500);
+                            this.add.circle(x, y, 3, 0xFF00FF, 0.8).setScrollFactor(0.3);
+                        }
+                        break;
+                    case 'space':
+                        for (let i = 0; i < 100; i++) {
+                            const x = Phaser.Math.Between(0, levelLength);
+                            const y = Phaser.Math.Between(20, 550);
+                            const size = Phaser.Math.Between(1, 3);
+                            this.add.circle(x, y, size, 0xFFFFFF).setScrollFactor(0.1);
+                        }
+                        this.add.circle(300, 150, 40, 0xFF6347).setScrollFactor(0.2);
+                        this.add.circle(1200, 200, 60, 0x4169E1).setScrollFactor(0.15);
+                        this.add.circle(2000, 120, 35, 0x9370DB).setScrollFactor(0.18);
+                        for (let i = 0; i < 5; i++) {
+                            const x = i * 600 + 200;
+                            this.add.ellipse(x, 300, 200, 150, 0x8B008B, 0.2).setScrollFactor(0.1);
+                        }
+                        break;
+                    case 'boss':
+                        // Dark red hellish background
+                        for (let i = 0; i < 50; i++) {
+                            const x = Phaser.Math.Between(0, levelLength);
+                            const y = Phaser.Math.Between(50, 400);
+                            const size = Phaser.Math.Between(20, 50);
+                            this.add.circle(x, y, size, 0xFF0000, 0.1).setScrollFactor(0.2);
+                        }
+                        // Lightning bolts
+                        for (let i = 0; i < 10; i++) {
+                            const x = Phaser.Math.Between(0, levelLength);
+                            this.add.line(x, 0, 0, 0, Phaser.Math.Between(-20, 20), 400, 0xFFFF00, 0.3).setLineWidth(3).setScrollFactor(0.15);
+                        }
+                        // Flames
+                        for (let i = 0; i < levelLength / 100; i++) {
+                            const x = i * 100;
+                            this.add.triangle(x, 560, 0, 0, -20, 40, 20, 40, 0xFF4500, 0.6).setScrollFactor(0.7);
+                        }
+                        break;
+                }
+            }
+
+            update() {
+                if (this.isGameOver || this.levelCompleted) return;
+
+                this.score += 1;
+                this.scoreText.setText('Score: ' + Math.floor(this.score / 10));
+
+                // Update demon face elements to follow player
+                if (this.playerFaceElements.length > 0) {
+                    const [hornLeft, hornRight, eyeLeft, eyeRight, mouth] = this.playerFaceElements;
+                    hornLeft.setPosition(this.player.x - 13, this.player.y - 17);
+                    hornRight.setPosition(this.player.x + 13, this.player.y - 17);
+                    eyeLeft.setPosition(this.player.x - 7, this.player.y - 5);
+                    eyeRight.setPosition(this.player.x + 7, this.player.y - 5);
+                    mouth.setPosition(this.player.x, this.player.y + 5);
+                }
+
+                // Boss AI and mechanics
+                if (this.isBossLevel && this.boss) {
+                    // Move boss up and down
+                    this.boss.y += this.bossSpeed * this.bossDirection * (1/60);
+                    if (this.boss.y >= 450) this.bossDirection = -1;
+                    if (this.boss.y <= 150) this.bossDirection = 1;
+
+                    // Update boss eyes position (adjusted for larger boss)
+                    this.bossEye1.x = this.boss.x - 30;
+                    this.bossEye1.y = this.boss.y - 20;
+                    this.bossEye2.x = this.boss.x + 30;
+                    this.bossEye2.y = this.boss.y - 20;
+                    this.bossPupil1.x = this.boss.x - 30;
+                    this.bossPupil1.y = this.boss.y - 20;
+                    this.bossPupil2.x = this.boss.x + 30;
+                    this.bossPupil2.y = this.boss.y - 20;
+
+                    // Boss shoots projectiles (faster rate for harder difficulty)
+                    this.projectileTimer += 16.67; // ~60fps
+                    if (this.projectileTimer > 700) { // Reduced from 1200 to 700 for faster attacks
+                        this.shootBossProjectile();
+                        this.projectileTimer = 0;
+                    }
+
+                    // Update projectiles (cleanup projectiles that go off screen)
+                    this.bossProjectiles.children.entries.forEach(projectile => {
+                        if (projectile.x < -50 || projectile.x > this.levelData.length + 100 ||
+                            projectile.y < -50 || projectile.y > 650) {
+                            projectile.destroy();
+                        }
+                    });
+
+                    // Check if boss is defeated
+                    if (this.bossHealth <= 0 && !this.bossDefeated) {
+                        this.defeatBoss();
+                    }
+                }
+
+                // Auto-runner mode for levels 4+
+                if (this.isAutoRunner) {
+                    // Automatically move right
+                    this.player.body.setVelocityX(this.playerSpeed);
+                } else {
+                    // Manual control for levels 1-3
+                    if (this.cursors.left.isDown) {
+                        this.player.body.setVelocityX(-this.playerSpeed);
+                    } else if (this.cursors.right.isDown) {
+                        this.player.body.setVelocityX(this.playerSpeed);
+                    } else {
+                        this.player.body.setVelocityX(0);
+                    }
+                }
+
+                if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+                    this.jump();
+                }
+
+                if (this.player.body.touching.down) {
+                    this.hasDoubleJumped = false;
+                }
+            }
+
+            jump() {
+                if (this.isGameOver || this.levelCompleted) return;
+
+                if (this.player.body.touching.down) {
+                    soundManager.playJump();
+                    this.player.body.setVelocityY(-500);
+                    this.hasDoubleJumped = false;
+                } else if (this.canDoubleJump && !this.hasDoubleJumped) {
+                    soundManager.playDoubleJump();
+                    this.player.body.setVelocityY(-450);
+                    this.hasDoubleJumped = true;
+                }
+            }
+
+            createObstacle(xPosition, color) {
+                const height = Phaser.Math.Between(30, 60);
+                const obstacle = this.add.rectangle(xPosition, 550 - height / 2, 30, height, parseInt(color.replace('#', '0x')));
+                this.obstacles.add(obstacle);
+            }
+
+            hitObstacle(player, obstacle) {
+                soundManager.playHit();
+                obstacle.destroy();
+                this.lives -= 1;
+                this.livesText.setText('Lives: ' + this.lives);
+
+                player.fillColor = 0xFFFFFF;
+                // Hide face elements during flash
+                this.playerFaceElements.forEach(element => element.setAlpha(0));
+
+                this.time.delayedCall(100, () => {
+                    if (!this.isGameOver) {
+                        player.fillColor = this.playerOriginalColor;
+                        // Show face elements again
+                        this.playerFaceElements.forEach(element => element.setAlpha(1));
+                    }
+                });
+
+                if (this.lives <= 0) {
+                    this.gameOver();
+                }
+            }
+
+            completeLevel() {
+                if (this.levelCompleted) return;
+
+                soundManager.playLevelComplete();
+                soundManager.stopBackgroundMusic();
+
+                this.levelCompleted = true;
+                this.physics.pause();
+
+                const finalScore = Math.floor(this.score / 10);
+                GameData.completeLevel(GameData.currentLevel);
+                const isNewHighScore = GameData.updateHighScore(finalScore);
+
+                this.add.text(400, 200, 'LEVEL COMPLETE!', {
+                    fontSize: '64px',
+                    fill: '#FFD700',
+                    fontStyle: 'bold',
+                    stroke: '#000',
+                    strokeThickness: 8
+                }).setOrigin(0.5).setScrollFactor(0);
+
+                this.add.text(400, 280, 'Score: ' + finalScore, {
+                    fontSize: '32px',
+                    fill: '#000',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5).setScrollFactor(0);
+
+                if (isNewHighScore) {
+                    this.add.text(400, 320, '🏆 NEW HIGH SCORE! 🏆', {
+                        fontSize: '24px',
+                        fill: '#FFD700',
+                        fontStyle: 'bold'
+                    }).setOrigin(0.5).setScrollFactor(0);
+                }
+
+                const hasNextLevel = GameData.levels[GameData.currentLevel + 1];
+                if (hasNextLevel) {
+                    const nextButton = this.add.rectangle(300, 400, 200, 60, 0x00FF00).setScrollFactor(0);
+                    this.add.text(300, 400, 'NEXT LEVEL', {
+                        fontSize: '28px',
+                        fill: '#000',
+                        fontStyle: 'bold'
+                    }).setOrigin(0.5).setScrollFactor(0);
+
+                    nextButton.setInteractive({ useHandCursor: true });
+                    nextButton.on('pointerover', () => { nextButton.fillColor = 0x00DD00; });
+                    nextButton.on('pointerout', () => { nextButton.fillColor = 0x00FF00; });
+                    nextButton.on('pointerdown', () => {
+                        soundManager.playClick();
+                        GameData.currentLevel++;
+                        this.scene.restart();
+                    });
+                }
+
+                const menuButton = this.add.rectangle(500, 400, 200, 60, 0xFF0000).setScrollFactor(0);
+                this.add.text(500, 400, 'LEVEL SELECT', {
+                    fontSize: '28px',
+                    fill: '#FFF',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5).setScrollFactor(0);
+
+                menuButton.setInteractive({ useHandCursor: true });
+                menuButton.on('pointerover', () => { menuButton.fillColor = 0xDD0000; });
+                menuButton.on('pointerout', () => { menuButton.fillColor = 0xFF0000; });
+                menuButton.on('pointerdown', () => {
+                    soundManager.playClick();
+                    this.scene.start('LevelSelectScene');
+                });
+            }
+
+            gameOver() {
+                soundManager.playGameOver();
+                soundManager.stopBackgroundMusic();
+
+                this.isGameOver = true;
+                this.physics.pause();
+                this.player.fillColor = 0x666666;
+
+                // Gray out face elements on game over
+                this.playerFaceElements.forEach(element => {
+                    if (element.fillColor !== undefined) {
+                        element.fillColor = 0x444444;
+                    }
+                    if (element.strokeColor !== undefined) {
+                        element.setStrokeStyle(2, 0x444444);
+                    }
+                });
+
+                const finalScore = Math.floor(this.score / 10);
+                GameData.updateHighScore(finalScore);
+
+                this.add.text(400, 250, 'GAME OVER', {
+                    fontSize: '64px',
+                    fill: '#FF0000',
+                    fontStyle: 'bold',
+                    stroke: '#000',
+                    strokeThickness: 8
+                }).setOrigin(0.5).setScrollFactor(0);
+
+                this.add.text(400, 340, 'Score: ' + finalScore, {
+                    fontSize: '32px',
+                    fill: '#000',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5).setScrollFactor(0);
+
+                const retryButton = this.add.rectangle(300, 440, 200, 60, 0x00FF00).setScrollFactor(0);
+                this.add.text(300, 440, 'RETRY', {
+                    fontSize: '28px',
+                    fill: '#000',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5).setScrollFactor(0);
+
+                retryButton.setInteractive({ useHandCursor: true });
+                retryButton.on('pointerover', () => { retryButton.fillColor = 0x00DD00; });
+                retryButton.on('pointerout', () => { retryButton.fillColor = 0x00FF00; });
+                retryButton.on('pointerdown', () => {
+                    soundManager.playClick();
+                    this.scene.restart();
+                });
+
+                const menuButton = this.add.rectangle(500, 440, 200, 60, 0xFF0000).setScrollFactor(0);
+                this.add.text(500, 440, 'LEVEL SELECT', {
+                    fontSize: '28px',
+                    fill: '#FFF',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5).setScrollFactor(0);
+
+                menuButton.setInteractive({ useHandCursor: true });
+                menuButton.on('pointerover', () => { menuButton.fillColor = 0xDD0000; });
+                menuButton.on('pointerout', () => { menuButton.fillColor = 0xFF0000; });
+                menuButton.on('pointerdown', () => {
+                    soundManager.playClick();
+                    this.scene.start('LevelSelectScene');
+                });
+            }
+
+            shootBossProjectile() {
+                if (!this.boss) return;
+
+                soundManager.playHit();
+
+                // Shoot 3 projectiles in a spread pattern (harder difficulty)
+                const angles = [-20, 0, 20]; // Degrees from horizontal
+                angles.forEach(angle => {
+                    const projectile = this.add.circle(this.boss.x - 60, this.boss.y, 15, 0xFF6600);
+                    this.physics.add.existing(projectile);
+                    projectile.body.setAllowGravity(false);
+
+                    // Calculate velocity with angle
+                    const speed = 450; // Increased speed
+                    const radians = Phaser.Math.DegToRad(angle);
+                    projectile.body.setVelocityX(-speed * Math.cos(radians));
+                    projectile.body.setVelocityY(speed * Math.sin(radians));
+
+                    this.bossProjectiles.add(projectile);
+                });
+            }
+
+            hitBossProjectile(player, projectile) {
+                soundManager.playHit();
+                projectile.destroy();
+                this.lives -= 1;
+                this.livesText.setText('Lives: ' + this.lives);
+
+                player.fillColor = 0xFFFFFF;
+                // Hide face elements during flash
+                this.playerFaceElements.forEach(element => element.setAlpha(0));
+
+                this.time.delayedCall(100, () => {
+                    if (!this.isGameOver) {
+                        player.fillColor = this.playerOriginalColor;
+                        // Show face elements again
+                        this.playerFaceElements.forEach(element => element.setAlpha(1));
+                    }
+                });
+
+                if (this.lives <= 0) {
+                    this.gameOver();
+                }
+            }
+
+            hitBoss(player, boss) {
+                // Player damages boss by touching it
+                soundManager.playHit();
+                this.bossHealth -= 1;
+
+                // Update boss health bar
+                const healthPercent = this.bossHealth / this.bossMaxHealth;
+                this.bossHealthBar.width = 300 * healthPercent;
+
+                // Flash boss
+                boss.fillColor = 0xFFFFFF;
+                this.time.delayedCall(100, () => {
+                    if (this.bossHealth > 0) {
+                        boss.fillColor = 0xFF0000;
+                    }
+                });
+
+                // Bounce player back
+                player.body.setVelocityY(-300);
+                player.body.setVelocityX(-200);
+            }
+
+            defeatBoss() {
+                this.bossDefeated = true;
+                soundManager.playLevelComplete();
+
+                // Unlock boss skin
+                const bossUnlocked = GameData.unlockBossSkin();
+
+                // Boss death animation
+                this.boss.fillColor = 0x666666;
+                this.bossEye1.destroy();
+                this.bossEye2.destroy();
+                this.bossPupil1.destroy();
+                this.bossPupil2.destroy();
+
+                // Make boss explode
+                for (let i = 0; i < 20; i++) {
+                    const particle = this.add.circle(this.boss.x, this.boss.y, 5, 0xFF6600);
+                    this.physics.add.existing(particle);
+                    particle.body.setVelocity(
+                        Phaser.Math.Between(-300, 300),
+                        Phaser.Math.Between(-300, 300)
+                    );
+                    this.time.delayedCall(1000, () => particle.destroy());
+                }
+
+                this.time.delayedCall(500, () => {
+                    this.boss.destroy();
+                    this.bossHealthBg.destroy();
+                    this.bossHealthBar.destroy();
+
+                    // Show victory message
+                    let victoryMessage = '👹 BOSS DEFEATED! 👹\n\n🏆 YOU WIN! 🏆';
+                    if (bossUnlocked) {
+                        victoryMessage += '\n\n🔓 Boss Skin Unlocked! 🔓';
+                    }
+
+                    this.add.text(400, 300, victoryMessage, {
+                        fontSize: '48px',
+                        fill: '#FFD700',
+                        fontStyle: 'bold',
+                        stroke: '#000',
+                        strokeThickness: 6,
+                        align: 'center'
+                    }).setOrigin(0.5).setScrollFactor(0);
+                });
+            }
+        }
+
+        const config = {
+            type: Phaser.AUTO,
+            width: 800,
+            height: 600,
+            parent: 'game-container',
+            backgroundColor: '#87CEEB',
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 1000 },
+                    debug: false
+                }
+            },
+            scene: [MenuScene, LevelSelectScene, SkinsScene, GameScene]
+        };
+
+        const game = new Phaser.Game(config);
+    </script>
+</body>
+</html>

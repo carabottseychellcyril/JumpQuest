@@ -1,0 +1,20 @@
+{
+  "name": "jump-quest",
+  "version": "0.1.0",
+  "description": "Jump Quest - A themed endless runner platformer",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": ["game", "phaser", "platformer", "endless-runner"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "phaser": "^3.80.1"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

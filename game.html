@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jump Quest - Prototype</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <script>
+        // Game configuration
+        const config = {
+            type: Phaser.AUTO,
+            width: 800,
+            height: 600,
+            parent: 'game-container',
+            backgroundColor: '#87CEEB',
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 1000 },
+                    debug: false
+                }
+            },
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            }
+        };
+
+        // Game state
+        let player;
+        let ground;
+        let obstacles;
+        let cursors;
+        let spaceKey;
+        let score = 0;
+        let lives = 5;
+        let playerSpeed = 300;
+        let obstacleTimer = 0;
+        let canDoubleJump = true;
+        let hasDoubleJumped = false;
+        let scoreText;
+        let livesText;
+        let gameOverText;
+        let isGameOver = false;
+
+        const game = new Phaser.Game(config);
+
+        function preload() {
+            // We'll use simple shapes for now (no images needed)
+        }
+
+        function create() {
+            console.log('Game started!');
+
+            // Create ground
+            ground = this.physics.add.staticGroup();
+
+            // Create ground tiles (make it wider)
+            for (let i = 0; i < 20; i++) {
+                const groundTile = this.add.rectangle(i * 80, 580, 80, 40, 0x8B4513);
+                ground.add(groundTile);
+            }
+
+            // Create player (simple square)
+            player = this.add.rectangle(100, 500, 30, 30, 0xFF0000);
+            this.physics.add.existing(player);
+            player.body.setCollideWorldBounds(true);
+            player.body.setBounce(0);
+            player.body.setDrag(500, 0);  // Add drag for smoother movement
+            player.body.setMaxVelocity(playerSpeed, 1000);
+
+            // Create obstacles group
+            obstacles = this.physics.add.group();
+
+            // Collisions
+            this.physics.add.collider(player, ground);
+            this.physics.add.overlap(player, obstacles, hitObstacle, null, this);
+
+            // Input
+            cursors = this.input.keyboard.createCursorKeys();
+            spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
+            // Mouse/touch input
+            this.input.on('pointerdown', jump, this);
+
+            // UI Text (fixed to camera)
+            scoreText = this.add.text(16, 16, 'Score: 0', {
+                fontSize: '24px',
+                fill: '#000',
+                fontStyle: 'bold'
+            }).setScrollFactor(0);
+
+            livesText = this.add.text(16, 50, 'Lives: 5', {
+                fontSize: '24px',
+                fill: '#000',
+                fontStyle: 'bold'
+            }).setScrollFactor(0);
+
+            // Instructions
+            this.add.text(400, 16, 'Arrow Keys to Move | SPACE to Jump!', {
+                fontSize: '20px',
+                fill: '#000',
+                fontStyle: 'bold'
+            }).setOrigin(0.5, 0).setScrollFactor(0);
+
+            this.add.text(400, 50, 'Double Jump Available!', {
+                fontSize: '18px',
+                fill: '#00FF00',
+                fontStyle: 'bold'
+            }).setOrigin(0.5, 0).setScrollFactor(0);
+
+            // Spawn obstacles
+            spawnObstacle(this, 300);
+            spawnObstacle(this, 500);
+            spawnObstacle(this, 700);
+            spawnObstacle(this, 900);
+            spawnObstacle(this, 1100);
+
+            // Camera follows player
+            this.cameras.main.setBounds(0, 0, 1600, 600);
+            this.cameras.main.startFollow(player);
+        }
+
+        function update(time, delta) {
+            if (isGameOver) {
+                return;
+            }
+
+            // Increase score over time
+            score += 1;
+            scoreText.setText('Score: ' + Math.floor(score / 10));
+
+            // Arrow key movement
+            if (cursors.left.isDown) {
+                player.body.setVelocityX(-playerSpeed);
+                console.log('Moving left');
+            } else if (cursors.right.isDown) {
+                player.body.setVelocityX(playerSpeed);
+                console.log('Moving right');
+            } else {
+                // Let drag slow down the player naturally
+                if (Math.abs(player.body.velocity.x) < 10) {
+                    player.body.setVelocityX(0);
+                }
+            }
+
+            // Jump input
+            if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
+                jump.call(this);
+            }
+
+            // Reset double jump when on ground
+            if (player.body.touching.down) {
+                hasDoubleJumped = false;
+            }
+        }
+
+        function jump() {
+            if (isGameOver) return;
+
+            // First jump (on ground)
+            if (player.body.touching.down) {
+                player.body.setVelocityY(-500);
+                hasDoubleJumped = false;
+            }
+            // Double jump (in air)
+            else if (canDoubleJump && !hasDoubleJumped) {
+                player.body.setVelocityY(-450);
+                hasDoubleJumped = true;
+            }
+        }
+
+        function spawnObstacle(scene, xPosition = 850) {
+            const obstacleHeight = Phaser.Math.Between(30, 60);
+            const obstacle = scene.add.rectangle(xPosition, 550 - obstacleHeight / 2, 30, obstacleHeight, 0x00FF00);
+
+            scene.physics.add.existing(obstacle);
+            obstacle.body.setAllowGravity(false);
+            obstacle.body.setImmovable(true);
+
+            obstacles.add(obstacle);
+            console.log('Obstacle spawned at x:', obstacle.x, 'Count:', obstacles.children.entries.length);
+        }
+
+        function hitObstacle(player, obstacle) {
+            // Remove the obstacle
+            obstacle.destroy();
+
+            // Decrease lives
+            lives -= 1;
+            livesText.setText('Lives: ' + lives);
+
+            // Flash player red
+            player.fillColor = 0xFFFFFF;
+            setTimeout(() => {
+                if (!isGameOver) {
+                    player.fillColor = 0xFF0000;
+                }
+            }, 100);
+
+            // Check game over
+            if (lives <= 0) {
+                gameOver(this);
+            }
+        }
+
+        function gameOver(scene) {
+            isGameOver = true;
+
+            // Stop physics
+            scene.physics.pause();
+
+            // Change player color
+            player.fillColor = 0x666666;
+
+            // Show game over text
+            gameOverText = scene.add.text(400, 300, 'GAME OVER\n\nScore: ' + Math.floor(score / 10) + '\n\nRefresh to Play Again', {
+                fontSize: '48px',
+                fill: '#FF0000',
+                align: 'center',
+                fontStyle: 'bold',
+                stroke: '#000',
+                strokeThickness: 6
+            });
+            gameOverText.setOrigin(0.5);
+        }
+    </script>
+</body>
+</html>
