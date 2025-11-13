@@ -251,7 +251,7 @@
                 7: { name: 'Toxic Swamp', theme: { sky: '#556B2F', ground: '#6B8E23', obstacle: '#9ACD32' }, length: 2800, obstacles: [280, 500, 720, 940, 1160, 1400, 1640, 1880, 2140, 2400, 2600], background: 'swamp' },
                 8: { name: 'Crystal Caves', theme: { sky: '#483D8B', ground: '#9370DB', obstacle: '#BA55D3' }, length: 3000, obstacles: [300, 500, 720, 920, 1140, 1380, 1600, 1840, 2080, 2340, 2600, 2850], background: 'crystal' },
                 9: { name: 'Final Dimension', theme: { sky: '#000000', ground: '#1C1C1C', obstacle: '#FFD700' }, length: 3500, obstacles: [250, 450, 650, 850, 1050, 1280, 1510, 1740, 1970, 2200, 2450, 2700, 2950, 3200], background: 'space' },
-                10: { name: '👹 BOSS BATTLE 👹', theme: { sky: '#330000', ground: '#660000', obstacle: '#FF0000' }, length: 4000, obstacles: [], background: 'boss', isBoss: true }
+                10: { name: '👹 BOSS BATTLE 👹', theme: { sky: '#330000', ground: '#660000', obstacle: '#FF0000' }, length: 4000, obstacles: [400, 650, 900, 1150, 1400, 1650, 1900, 2150, 2400, 2650, 2900, 3150], background: 'boss', isBoss: true }
             },
 
             skins: {
@@ -769,8 +769,8 @@
                     this.bossSpeed = 250; // Increased speed for harder difficulty
 
                     // Boss health (increased for harder difficulty)
-                    this.bossHealth = 20;
-                    this.bossMaxHealth = 20;
+                    this.bossHealth = 25;
+                    this.bossMaxHealth = 25;
 
                     // Boss eyes (adjusted for larger boss)
                     this.bossEye1 = this.add.circle(this.boss.x - 30, this.boss.y - 20, 12, 0xFFFFFF);
@@ -1020,7 +1020,7 @@
 
                     // Boss shoots projectiles (faster rate for harder difficulty)
                     this.projectileTimer += 16.67; // ~60fps
-                    if (this.projectileTimer > 700) { // Reduced from 1200 to 700 for faster attacks
+                    if (this.projectileTimer > 500) { // Even faster attacks - reduced from 700 to 500
                         this.shootBossProjectile();
                         this.projectileTimer = 0;
                     }
@@ -1255,7 +1255,7 @@
                     projectile.body.setAllowGravity(false);
 
                     // Calculate velocity with angle
-                    const speed = 450; // Increased speed
+                    const speed = 500; // Even faster projectiles - increased from 450 to 500
                     const radians = Phaser.Math.DegToRad(angle);
                     projectile.body.setVelocityX(-speed * Math.cos(radians));
                     projectile.body.setVelocityY(speed * Math.sin(radians));
