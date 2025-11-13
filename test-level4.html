@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Level 4</title>
+</head>
+<body>
+    <h1>Level 4 Debug</h1>
+    <button onclick="unlockAllLevels()">Unlock All Levels</button>
+    <button onclick="checkLevel4()">Check Level 4 Status</button>
+    <button onclick="clearProgress()">Clear All Progress</button>
+    <div id="output" style="margin-top: 20px; font-family: monospace;"></div>
+
+    <script>
+        function unlockAllLevels() {
+            localStorage.setItem('completedLevels', JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+            document.getElementById('output').innerHTML = '<p style="color: green;">All levels unlocked! Refresh the game.</p>';
+        }
+
+        function clearProgress() {
+            localStorage.clear();
+            document.getElementById('output').innerHTML = '<p style="color: red;">Progress cleared! Refresh the game.</p>';
+        }
+
+        function checkLevel4() {
+            const completedLevels = JSON.parse(localStorage.getItem('completedLevels')) || [];
+            const output = document.getElementById('output');
+            output.innerHTML = `
+                <p><strong>Completed Levels:</strong> ${completedLevels.join(', ') || 'None'}</p>
+                <p><strong>Level 3 Completed:</strong> ${completedLevels.includes(3) ? 'Yes ✓' : 'No ✗'}</p>
+                <p><strong>Level 4 Should Be:</strong> ${completedLevels.includes(3) ? 'Unlocked' : 'Locked'}</p>
+            `;
+        }
+
+        // Auto-check on load
+        checkLevel4();
+    </script>
+</body>
+</html>

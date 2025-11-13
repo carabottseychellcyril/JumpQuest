@@ -678,6 +678,14 @@
             create() {
                 this.levelData = GameData.levels[GameData.currentLevel];
                 const levelData = this.levelData;
+
+                // Debug: Make sure level data exists
+                if (!levelData) {
+                    console.error('Level data not found for level', GameData.currentLevel);
+                    this.scene.start('MenuScene');
+                    return;
+                }
+
                 const theme = levelData.theme;
 
                 // Start background music for this level
@@ -699,8 +707,11 @@
                 // Ground
                 this.ground = this.physics.add.staticGroup();
                 const groundTiles = Math.ceil((levelData.length + 500) / 80);
+                const groundColor = parseInt(theme.ground.replace('#', '0x'));
+                console.log('Level', GameData.currentLevel, 'Ground color:', groundColor, 'from', theme.ground);
+
                 for (let i = 0; i < groundTiles; i++) {
-                    const groundTile = this.add.rectangle(i * 80, 580, 80, 40, parseInt(theme.ground.replace('#', '0x')));
+                    const groundTile = this.add.rectangle(i * 80, 580, 80, 40, groundColor);
                     this.ground.add(groundTile);
                 }
 
