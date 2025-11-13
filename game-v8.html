@@ -678,14 +678,6 @@
             create() {
                 this.levelData = GameData.levels[GameData.currentLevel];
                 const levelData = this.levelData;
-
-                // Debug: Make sure level data exists
-                if (!levelData) {
-                    console.error('Level data not found for level', GameData.currentLevel);
-                    this.scene.start('MenuScene');
-                    return;
-                }
-
                 const theme = levelData.theme;
 
                 // Start background music for this level
@@ -710,9 +702,7 @@
                 const groundColor = parseInt(theme.ground.replace('#', '0x'));
 
                 for (let i = 0; i < groundTiles; i++) {
-                    const xPos = i * 80 + 40; // Center the tile
-                    const groundTile = this.add.rectangle(xPos, 580, 80, 40, groundColor);
-                    this.physics.add.existing(groundTile, true); // Explicitly add static physics body
+                    const groundTile = this.add.rectangle(i * 80, 580, 80, 40, groundColor);
                     this.ground.add(groundTile);
                 }
 
@@ -1091,13 +1081,7 @@
 
             createObstacle(xPosition, color) {
                 const height = Phaser.Math.Between(30, 60);
-                const yPosition = 550 - height / 2;
-                const obstacle = this.add.rectangle(xPosition, yPosition, 30, height, parseInt(color.replace('#', '0x')));
-
-                // Add physics body to obstacle
-                this.physics.world.enable(obstacle, Phaser.Physics.Arcade.STATIC_BODY);
-                obstacle.body.setImmovable(true);
-
+                const obstacle = this.add.rectangle(xPosition, 550 - height / 2, 30, height, parseInt(color.replace('#', '0x')));
                 this.obstacles.add(obstacle);
             }
 
