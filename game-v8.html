@@ -708,10 +708,11 @@
                 this.ground = this.physics.add.staticGroup();
                 const groundTiles = Math.ceil((levelData.length + 500) / 80);
                 const groundColor = parseInt(theme.ground.replace('#', '0x'));
-                console.log('Level', GameData.currentLevel, 'Ground color:', groundColor, 'from', theme.ground);
 
                 for (let i = 0; i < groundTiles; i++) {
-                    const groundTile = this.add.rectangle(i * 80, 580, 80, 40, groundColor);
+                    const xPos = i * 80 + 40; // Center the tile
+                    const groundTile = this.add.rectangle(xPos, 580, 80, 40, groundColor);
+                    this.physics.add.existing(groundTile, true); // Explicitly add static physics body
                     this.ground.add(groundTile);
                 }
 
