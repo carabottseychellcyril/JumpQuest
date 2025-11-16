@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jump Quest - Subscribe</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 56px;
+            margin: 0 0 10px 0;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 20px;
+            opacity: 0.9;
+        }
+
+        .pricing-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .pricing-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .pricing-card {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            position: relative;
+            transition: transform 0.3s;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .pricing-card.featured {
+            border: 4px solid #FFD700;
+        }
+
+        .badge {
+            position: absolute;
+            top: -15px;
+            right: 20px;
+            background: #FFD700;
+            color: #000;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .pricing-card h2 {
+            color: #667eea;
+            font-size: 28px;
+            margin: 0 0 10px 0;
+        }
+
+        .price {
+            font-size: 48px;
+            font-weight: bold;
+            color: #000;
+            margin: 20px 0;
+        }
+
+        .price span {
+            font-size: 20px;
+            color: #666;
+        }
+
+        .features {
+            list-style: none;
+            padding: 0;
+            margin: 30px 0;
+        }
+
+        .features li {
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            color: #555;
+            font-size: 16px;
+        }
+
+        .features li:last-child {
+            border-bottom: none;
+        }
+
+        .features li::before {
+            content: "✓ ";
+            color: #00FF00;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .subscribe-btn {
+            width: 100%;
+            padding: 18px;
+            background: #00FF00;
+            border: none;
+            border-radius: 8px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .subscribe-btn:hover {
+            background: #00DD00;
+        }
+
+        .subscribe-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .subscribe-btn.premium {
+            background: #FFD700;
+            color: #000;
+        }
+
+        .subscribe-btn.premium:hover {
+            background: #FFC700;
+        }
+
+        .logout-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 12px 30px;
+            background: #FF0000;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #DD0000;
+        }
+
+        .user-info {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 20px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>JUMP QUEST</h1>
+            <p>Premium Game Access</p>
+        </div>
+
+        <div id="user-info" class="user-info" style="display: none;">
+            Logged in as: <span id="user-email"></span>
+        </div>
+
+        <div id="error" class="error"></div>
+        <div id="loading" class="loading">Processing...</div>
+
+        <div id="pricing-section" class="pricing-cards">
+            <!-- Standard Plan -->
+            <div class="pricing-card">
+                <h2>Standard</h2>
+                <div class="price">
+                    €50<span>/month</span>
+                </div>
+                <ul class="features">
+                    <li>Access to all 10 levels</li>
+                    <li>Unlock all 9 skins</li>
+                    <li>Cloud save your progress</li>
+                    <li>Boss Battle included</li>
+                    <li>No ads, ever</li>
+                    <li>Email support</li>
+                </ul>
+                <button class="subscribe-btn" onclick="subscribe('standard')">
+                    Subscribe - €50/month
+                </button>
+            </div>
+
+            <!-- Premium Plan -->
+            <div class="pricing-card featured">
+                <span class="badge">MOST POPULAR</span>
+                <h2>Premium</h2>
+                <div class="price">
+                    €100<span>/month</span>
+                </div>
+                <ul class="features">
+                    <li>Everything in Standard</li>
+                    <li>Priority access to new levels</li>
+                    <li>Exclusive premium skins</li>
+                    <li>Private Discord community</li>
+                    <li>Monthly developer updates</li>
+                    <li>Priority support (24h response)</li>
+                    <li>Commercial usage rights</li>
+                </ul>
+                <button class="subscribe-btn premium" onclick="subscribe('premium')">
+                    Subscribe - €100/month
+                </button>
+            </div>
+        </div>
+
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+
+    <script>
+        // REPLACE THESE WITH YOUR ACTUAL CREDENTIALS
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
+        const STRIPE_PUBLISHABLE_KEY = 'YOUR_STRIPE_PUBLISHABLE_KEY_HERE';
+
+        // REPLACE THESE WITH YOUR STRIPE PRICE IDs (create these in Stripe Dashboard)
+        const STRIPE_PRICES = {
+            standard: 'price_XXXXXXXXXXXXX', // €50/month price ID
+            premium: 'price_YYYYYYYYYYYYY'   // €100/month price ID
+        };
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+
+        let currentUser = null;
+
+        // Check authentication on load
+        checkAuth();
+
+        async function checkAuth() {
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session) {
+                // Not logged in, redirect to auth page
+                window.location.href = 'auth.html';
+                return;
+            }
+
+            currentUser = session.user;
+            document.getElementById('user-email').textContent = currentUser.email;
+            document.getElementById('user-info').style.display = 'block';
+
+            // Check if they already have an active subscription
+            await checkExistingSubscription();
+        }
+
+        async function checkExistingSubscription() {
+            const { data: subscription, error } = await supabase
+                .from('subscriptions')
+                .select('status, current_period_end, stripe_customer_id')
+                .eq('user_id', currentUser.id)
+                .single();
+
+            if (subscription && subscription.status === 'active') {
+                const periodEnd = new Date(subscription.current_period_end);
+                if (periodEnd > new Date()) {
+                    // Already has active subscription, redirect to game
+                    window.location.href = 'game-v8.html';
+                    return;
+                }
+            }
+        }
+
+        async function subscribe(plan) {
+            if (!currentUser) {
+                showError('Please log in first');
+                return;
+            }
+
+            const priceId = STRIPE_PRICES[plan];
+            if (!priceId || priceId.startsWith('price_X')) {
+                showError('Payment system not configured. Please contact support.');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                // Call Supabase Edge Function to create Stripe Checkout session
+                const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+                    body: {
+                        priceId: priceId,
+                        userId: currentUser.id,
+                        userEmail: currentUser.email
+                    }
+                });
+
+                hideLoading();
+
+                if (error) {
+                    console.error('Error creating checkout session:', error);
+                    showError('Failed to create checkout session. Please try again.');
+                    return;
+                }
+
+                if (!data.sessionId) {
+                    showError('Invalid response from server. Please try again.');
+                    return;
+                }
+
+                // Redirect to Stripe Checkout
+                const { error: stripeError } = await stripe.redirectToCheckout({
+                    sessionId: data.sessionId
+                });
+
+                if (stripeError) {
+                    showError(stripeError.message);
+                }
+            } catch (err) {
+                hideLoading();
+                console.error('Unexpected error:', err);
+                showError('An unexpected error occurred. Please try again.');
+            }
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            window.location.href = 'auth.html';
+        }
+
+        function showLoading() {
+            document.getElementById('loading').classList.add('show');
+            document.querySelectorAll('.subscribe-btn').forEach(btn => btn.disabled = true);
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('show');
+            document.querySelectorAll('.subscribe-btn').forEach(btn => btn.disabled = false);
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('error');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+        }
+    </script>
+</body>
+</html>

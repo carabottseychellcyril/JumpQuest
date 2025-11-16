@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jump Quest - Login</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Arial, sans-serif;
+        }
+
+        .auth-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #FF0000;
+            font-size: 48px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            text-align: center;
+            color: #666;
+            font-size: 18px;
+            margin-bottom: 30px;
+            font-weight: normal;
+        }
+
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #999;
+            transition: all 0.3s;
+        }
+
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button.primary {
+            width: 100%;
+            padding: 15px;
+            background: #00FF00;
+            border: none;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button.primary:hover {
+            background: #00DD00;
+        }
+
+        button.primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .success.show {
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-weight: bold;
+            display: none;
+            margin-top: 15px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .helper-text {
+            text-align: center;
+            color: #999;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+
+        .oauth-divider {
+            text-align: center;
+            color: #999;
+            margin: 25px 0;
+            position: relative;
+        }
+
+        .oauth-divider::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: #ddd;
+        }
+
+        .oauth-divider::after {
+            content: "";
+            position: absolute;
+            right: 0;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <h1>JUMP QUEST</h1>
+        <h2>Start Your Adventure</h2>
+
+        <div class="tab-buttons">
+            <button class="tab-button active" onclick="switchTab('login')">Login</button>
+            <button class="tab-button" onclick="switchTab('signup')">Sign Up</button>
+        </div>
+
+        <div id="error" class="error"></div>
+        <div id="success" class="success"></div>
+
+        <!-- Login Tab -->
+        <div id="login-tab" class="tab-content active">
+            <form onsubmit="handleLogin(event)">
+                <input type="email" id="login-email" placeholder="Email" required>
+                <input type="password" id="login-password" placeholder="Password" required>
+                <button type="submit" class="primary">Login</button>
+            </form>
+            <p class="helper-text">Don't have an account? Click "Sign Up" above</p>
+        </div>
+
+        <!-- Signup Tab -->
+        <div id="signup-tab" class="tab-content">
+            <form onsubmit="handleSignup(event)">
+                <input type="email" id="signup-email" placeholder="Email" required>
+                <input type="password" id="signup-password" placeholder="Password (min 6 characters)" required minlength="6">
+                <input type="password" id="signup-confirm" placeholder="Confirm Password" required minlength="6">
+                <button type="submit" class="primary">Create Account</button>
+            </form>
+            <p class="helper-text">Already have an account? Click "Login" above</p>
+        </div>
+
+        <div id="loading" class="loading">Loading...</div>
+    </div>
+
+    <script>
+        // REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Check if already logged in
+        checkExistingSession();
+
+        async function checkExistingSession() {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                // Already logged in, check subscription
+                await checkSubscriptionAndRedirect(session.user.id);
+            }
+        }
+
+        function switchTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tab + '-tab').classList.add('active');
+
+            // Clear messages
+            hideMessage('error');
+            hideMessage('success');
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            showLoading();
+            hideMessage('error');
+            hideMessage('success');
+
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
+
+            hideLoading();
+
+            if (error) {
+                showMessage('error', error.message);
+                return;
+            }
+
+            showMessage('success', 'Login successful! Checking subscription...');
+            await checkSubscriptionAndRedirect(data.user.id);
+        }
+
+        async function handleSignup(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const confirm = document.getElementById('signup-confirm').value;
+
+            if (password !== confirm) {
+                showMessage('error', 'Passwords do not match!');
+                return;
+            }
+
+            showLoading();
+            hideMessage('error');
+            hideMessage('success');
+
+            const { data, error } = await supabase.auth.signUp({
+                email: email,
+                password: password
+            });
+
+            hideLoading();
+
+            if (error) {
+                showMessage('error', error.message);
+                return;
+            }
+
+            // Check if email confirmation is required
+            if (data.user && !data.session) {
+                showMessage('success', 'Account created! Please check your email to confirm your account.');
+                return;
+            }
+
+            showMessage('success', 'Account created! Redirecting to subscription...');
+            setTimeout(() => {
+                window.location.href = 'subscribe.html';
+            }, 1000);
+        }
+
+        async function checkSubscriptionAndRedirect(userId) {
+            try {
+                const { data: subscription, error } = await supabase
+                    .from('subscriptions')
+                    .select('status, current_period_end')
+                    .eq('user_id', userId)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+                    console.error('Error checking subscription:', error);
+                }
+
+                // Check if subscription exists and is active
+                if (subscription && subscription.status === 'active') {
+                    const periodEnd = new Date(subscription.current_period_end);
+                    if (periodEnd > new Date()) {
+                        // Valid subscription, go to game
+                        window.location.href = 'game-v8.html';
+                        return;
+                    }
+                }
+
+                // No active subscription, go to payment page
+                window.location.href = 'subscribe.html';
+            } catch (err) {
+                console.error('Unexpected error:', err);
+                window.location.href = 'subscribe.html';
+            }
+        }
+
+        function showMessage(type, message) {
+            const element = document.getElementById(type);
+            element.textContent = message;
+            element.classList.add('show');
+        }
+
+        function hideMessage(type) {
+            const element = document.getElementById(type);
+            element.classList.remove('show');
+        }
+
+        function showLoading() {
+            document.getElementById('loading').classList.add('show');
+            document.querySelectorAll('button.primary').forEach(btn => btn.disabled = true);
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('show');
+            document.querySelectorAll('button.primary').forEach(btn => btn.disabled = false);
+        }
+    </script>
+</body>
+</html>

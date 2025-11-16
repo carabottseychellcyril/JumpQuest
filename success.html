@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful - Jump Quest</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Arial, sans-serif;
+        }
+
+        .success-container {
+            background: white;
+            padding: 60px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .checkmark {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #00FF00;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            animation: scaleIn 0.5s ease-out;
+        }
+
+        .checkmark::after {
+            content: "✓";
+            font-size: 60px;
+            color: white;
+            font-weight: bold;
+        }
+
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+            }
+            to {
+                transform: scale(1);
+            }
+        }
+
+        h1 {
+            color: #00FF00;
+            font-size: 42px;
+            margin: 0 0 20px 0;
+        }
+
+        p {
+            color: #666;
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .subscription-details {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+        }
+
+        .subscription-details p {
+            margin: 10px 0;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .play-button {
+            display: inline-block;
+            padding: 20px 50px;
+            background: #00FF00;
+            color: #000;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 30px;
+            transition: background 0.3s;
+        }
+
+        .play-button:hover {
+            background: #00DD00;
+        }
+
+        .countdown {
+            color: #999;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-size: 20px;
+        }
+
+        .loading::after {
+            content: "...";
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: ""; }
+            40% { content: "."; }
+            60% { content: ".."; }
+            80%, 100% { content: "..."; }
+        }
+    </style>
+</head>
+<body>
+    <div id="verifying" class="success-container" style="display: none;">
+        <div class="loading">Verifying your payment</div>
+    </div>
+
+    <div id="success-content" class="success-container" style="display: none;">
+        <div class="checkmark"></div>
+        <h1>Welcome to Jump Quest!</h1>
+        <p>Your subscription is now active.</p>
+
+        <div class="subscription-details">
+            <p id="plan-name">Plan: Premium</p>
+            <p id="billing-info">Billing: €100/month</p>
+        </div>
+
+        <p>You now have access to:</p>
+        <p>
+            ✓ All 10 levels<br>
+            ✓ All character skins<br>
+            ✓ Cloud saved progress<br>
+            ✓ Epic boss battle
+        </p>
+
+        <a href="game-v8.html" class="play-button">START PLAYING</a>
+
+        <p class="countdown">Redirecting in <span id="countdown">5</span> seconds...</p>
+    </div>
+
+    <script>
+        // REPLACE WITH YOUR ACTUAL SUPABASE CREDENTIALS
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Show verifying state
+        document.getElementById('verifying').style.display = 'block';
+
+        // Get session ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session_id');
+
+        if (!sessionId) {
+            // No session ID, just show success and redirect
+            showSuccess();
+        } else {
+            // Wait a moment for webhook to process, then verify
+            setTimeout(verifySubscription, 2000);
+        }
+
+        async function verifySubscription() {
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session) {
+                // Not logged in, redirect to auth
+                window.location.href = 'auth.html';
+                return;
+            }
+
+            // Check subscription status
+            const { data: subscription } = await supabase
+                .from('subscriptions')
+                .select('status, current_period_end')
+                .eq('user_id', session.user.id)
+                .single();
+
+            if (subscription && subscription.status === 'active') {
+                showSuccess();
+            } else {
+                // Subscription not found yet, wait a bit longer
+                setTimeout(verifySubscription, 1000);
+            }
+        }
+
+        function showSuccess() {
+            document.getElementById('verifying').style.display = 'none';
+            document.getElementById('success-content').style.display = 'block';
+
+            // Start countdown
+            let seconds = 5;
+            const countdownEl = document.getElementById('countdown');
+
+            const interval = setInterval(() => {
+                seconds--;
+                countdownEl.textContent = seconds;
+
+                if (seconds <= 0) {
+                    clearInterval(interval);
+                    window.location.href = 'game-v8.html';
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
