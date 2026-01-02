@@ -1271,10 +1271,22 @@
 
                 // Boss AI and mechanics
                 if (this.isBossLevel && this.boss) {
-                    // Move boss up and down
-                    this.boss.y += this.bossSpeed * this.bossDirection * (1/60);
-                    if (this.boss.y >= 450) this.bossDirection = -1;
-                    if (this.boss.y <= 150) this.bossDirection = 1;
+                    // Boss follows the player
+                    const dx = this.player.x - this.boss.x;
+                    const dy = this.player.y - this.boss.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance > 50) {
+                        // Move towards player
+                        const moveX = (dx / distance) * this.bossSpeed * (1/60);
+                        const moveY = (dy / distance) * this.bossSpeed * (1/60);
+                        this.boss.x += moveX;
+                        this.boss.y += moveY;
+
+                        // Keep boss within bounds
+                        if (this.boss.y > 480) this.boss.y = 480;
+                        if (this.boss.y < 100) this.boss.y = 100;
+                    }
 
                     // Update boss eyes position (adjusted for larger boss)
                     this.bossEye1.x = this.boss.x - 30;
@@ -1348,7 +1360,7 @@
             }
 
             createObstacle(xPosition, color) {
-                const height = Phaser.Math.Between(70, 110);
+                const height = Phaser.Math.Between(120, 180);
                 const obstacle = this.add.rectangle(xPosition, 550 - height / 2, 20, height, parseInt(color.replace('#', '0x')));
                 this.obstacles.add(obstacle);
             }
