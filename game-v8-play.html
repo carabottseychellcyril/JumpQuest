@@ -2,9 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Jump Quest</title>
     <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
         body {
             margin: 0;
             padding: 0;
@@ -14,121 +23,132 @@
             min-height: 100vh;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             font-family: Arial, sans-serif;
+            overflow: hidden;
         }
+
         #game-container {
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
             border-radius: 8px;
             overflow: hidden;
+            max-width: 800px;
+            max-height: 600px;
         }
+
         canvas {
             display: block;
         }
+
         #sound-toggle {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 10px 20px;
+            top: 10px;
+            right: 10px;
+            padding: 10px 15px;
             background: #00FF00;
             border: none;
             border-radius: 5px;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
             font-weight: bold;
             z-index: 1000;
+            touch-action: manipulation;
         }
+
         #sound-toggle:hover {
             background: #00DD00;
+        }
+
+        #pause-button {
+            position: fixed;
+            top: 10px;
+            right: 120px;
+            padding: 10px 15px;
+            background: #FF9900;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 1000;
+            touch-action: manipulation;
+            display: none;
+        }
+
+        #pause-button:hover {
+            background: #DD8800;
+        }
+
+        #pause-button.show {
+            display: block;
+        }
+
+        /* Mobile controls */
+        #mobile-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 150px;
+            display: none;
+            z-index: 999;
+            pointer-events: none;
+        }
+
+        #mobile-controls.show {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 20px;
+        }
+
+        .control-button {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid white;
+            background: rgba(255, 255, 255, 0.3);
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            touch-action: manipulation;
+            pointer-events: all;
+            user-select: none;
+        }
+
+        .control-button:active {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .left-controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        @media (max-width: 768px) {
+            #mobile-controls {
+                display: flex;
+            }
         }
     </style>
 </head>
 <body>
     <button id="sound-toggle">🔊 Sound ON</button>
+    <button id="pause-button">⏸ Pause</button>
     <div id="game-container"></div>
+
+    <!-- Mobile touch controls -->
+    <div id="mobile-controls" class="show">
+        <div class="left-controls">
+            <div class="control-button" id="btn-left">←</div>
+            <div class="control-button" id="btn-right">→</div>
+        </div>
+        <div class="control-button" id="btn-jump">JUMP</div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // ============================================
-        // AUTHENTICATION & SUBSCRIPTION CHECK
-        // ============================================
-        // REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
-        const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
-
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        // Check authentication BEFORE loading the game
-        (async function checkAuthAndSubscription() {
-            // Check if user is logged in
-            const { data: { session } } = await supabase.auth.getSession();
-
-            if (!session) {
-                // Not logged in, redirect to auth page
-                window.location.href = 'auth.html';
-                return;
-            }
-
-            // Check subscription status
-            const { data: subscription, error } = await supabase
-                .from('subscriptions')
-                .select('status, current_period_end, plan_type')
-                .eq('user_id', session.user.id)
-                .single();
-
-            if (error && error.code !== 'PGRST116') {
-                console.error('Error checking subscription:', error);
-                window.location.href = 'subscribe.html';
-                return;
-            }
-
-            // Verify subscription is active and not expired
-            if (!subscription || subscription.status !== 'active') {
-                window.location.href = 'subscribe.html';
-                return;
-            }
-
-            const periodEnd = new Date(subscription.current_period_end);
-            if (periodEnd < new Date()) {
-                // Subscription expired
-                window.location.href = 'subscribe.html';
-                return;
-            }
-
-            // Valid subscription - load game data from cloud
-            await loadCloudGameData(session.user.id);
-
-            // Optional: Display user info
-            console.log('Welcome!', session.user.email);
-            console.log('Subscription plan:', subscription.plan_type);
-            console.log('Valid until:', periodEnd.toLocaleDateString());
-        })();
-
-        async function loadCloudGameData(userId) {
-            try {
-                const { data, error } = await supabase
-                    .from('game_progress')
-                    .select('*')
-                    .eq('user_id', userId)
-                    .single();
-
-                if (data) {
-                    // Sync cloud data to local GameData
-                    GameData.highScore = data.high_score || 0;
-                    GameData.completedLevels = data.completed_levels || [];
-                    GameData.unlockedSkins = data.unlocked_skins || ['red_square'];
-                    GameData.selectedSkin = data.selected_skin || 'red_square';
-                    GameData.euroBucks = data.euro_bucks || 0;
-                    GameData.gameCompleted = data.game_completed || false;
-                }
-            } catch (err) {
-                console.warn('Could not load cloud game data:', err);
-                // Continue with local data
-            }
-        }
-
-        // ============================================
-        // GAME CODE STARTS HERE
-        // ============================================
-
         // Sound Manager using Web Audio API
         class SoundManager {
             constructor() {
@@ -316,6 +336,50 @@
 
         const soundManager = new SoundManager();
 
+        // Mobile controls state
+        const MobileControls = {
+            left: false,
+            right: false,
+            jump: false
+        };
+
+        // Setup mobile controls
+        if ('ontouchstart' in window) {
+            const btnLeft = document.getElementById('btn-left');
+            const btnRight = document.getElementById('btn-right');
+            const btnJump = document.getElementById('btn-jump');
+
+            btnLeft.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                MobileControls.left = true;
+            });
+            btnLeft.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                MobileControls.left = false;
+            });
+
+            btnRight.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                MobileControls.right = true;
+            });
+            btnRight.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                MobileControls.right = false;
+            });
+
+            btnJump.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                MobileControls.jump = true;
+            });
+            btnJump.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                MobileControls.jump = false;
+            });
+        } else {
+            // Hide mobile controls on desktop
+            document.getElementById('mobile-controls').style.display = 'none';
+        }
+
         // Global game data with localStorage persistence
         const GameData = {
             selectedSkin: localStorage.getItem('selectedSkin') || 'red_square',
@@ -351,38 +415,13 @@
                 'boss_demon': { name: '👹 Demon Lord', color: 0x8B0000, shape: 'square', unlockScore: -1, requiresBossDefeat: true }
             },
 
-            async saveData() {
-                // Save to localStorage as backup
+            saveData() {
                 localStorage.setItem('selectedSkin', this.selectedSkin);
                 localStorage.setItem('highScore', this.highScore);
                 localStorage.setItem('unlockedSkins', JSON.stringify(this.unlockedSkins));
                 localStorage.setItem('completedLevels', JSON.stringify(this.completedLevels));
                 localStorage.setItem('euroBucks', this.euroBucks.toString());
                 localStorage.setItem('gameCompleted', this.gameCompleted.toString());
-
-                // Sync to cloud (Supabase)
-                try {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (session) {
-                        await supabase
-                            .from('game_progress')
-                            .upsert({
-                                user_id: session.user.id,
-                                high_score: this.highScore,
-                                completed_levels: this.completedLevels,
-                                unlocked_skins: this.unlockedSkins,
-                                selected_skin: this.selectedSkin,
-                                euro_bucks: this.euroBucks,
-                                game_completed: this.gameCompleted,
-                                updated_at: new Date().toISOString()
-                            }, {
-                                onConflict: 'user_id'
-                            });
-                    }
-                } catch (err) {
-                    console.warn('Could not sync to cloud:', err);
-                    // Continue anyway - localStorage is saved
-                }
             },
 
             updateHighScore(score) {
@@ -433,6 +472,17 @@
             }
         };
 
+        // Pause button reference
+        const pauseButton = document.getElementById('pause-button');
+        let currentGameScene = null;
+
+        // Pause button click handler
+        pauseButton.addEventListener('click', () => {
+            if (currentGameScene && !currentGameScene.isGameOver && !currentGameScene.levelCompleted) {
+                currentGameScene.togglePause();
+            }
+        });
+
         // MENU SCENE
         class MenuScene extends Phaser.Scene {
             constructor() {
@@ -441,6 +491,7 @@
 
             create() {
                 soundManager.stopBackgroundMusic();
+                pauseButton.classList.remove('show');
                 this.cameras.main.setBackgroundColor('#87CEEB');
 
                 this.add.text(400, 70, 'JUMP QUEST', {
@@ -466,14 +517,8 @@
                     fontStyle: 'bold'
                 }).setOrigin(0.5);
 
-                this.add.text(400, 210, '💰 Euro Bucks: €' + GameData.euroBucks.toFixed(2), {
-                    fontSize: '20px',
-                    fill: '#FFD700',
-                    fontStyle: 'bold'
-                }).setOrigin(0.5);
-
-                const playButton = this.add.rectangle(400, 280, 220, 60, 0x00FF00);
-                this.add.text(400, 280, 'PLAY LEVELS', {
+                const playButton = this.add.rectangle(400, 250, 220, 60, 0x00FF00);
+                this.add.text(400, 250, 'PLAY LEVELS', {
                     fontSize: '28px',
                     fill: '#000',
                     fontStyle: 'bold'
@@ -487,8 +532,8 @@
                     this.scene.start('LevelSelectScene');
                 });
 
-                const skinsButton = this.add.rectangle(400, 360, 220, 60, 0xFFAA00);
-                this.add.text(400, 360, 'CHOOSE SKIN', {
+                const skinsButton = this.add.rectangle(400, 330, 220, 60, 0xFFAA00);
+                this.add.text(400, 330, 'CHOOSE SKIN', {
                     fontSize: '28px',
                     fill: '#000',
                     fontStyle: 'bold'
@@ -502,36 +547,36 @@
                     this.scene.start('SkinsScene');
                 });
 
-                this.add.text(400, 450, 'HOW TO PLAY', {
+                this.add.text(400, 420, 'HOW TO PLAY', {
                     fontSize: '20px',
                     fill: '#000',
                     fontStyle: 'bold'
                 }).setOrigin(0.5);
 
-                this.add.text(400, 480, 'Levels 1-3: Arrow Keys to Move  |  SPACE: Jump', {
+                this.add.text(400, 450, 'Levels 1-3: Arrow Keys to Move  |  SPACE: Jump', {
                     fontSize: '13px',
                     fill: '#000'
                 }).setOrigin(0.5);
 
-                this.add.text(400, 502, 'Levels 4-9: AUTO-RUN! Just Jump to Survive!', {
+                this.add.text(400, 472, 'Levels 4-9: AUTO-RUN! Just Jump to Survive!', {
                     fontSize: '13px',
                     fill: '#FF6600',
                     fontStyle: 'bold'
                 }).setOrigin(0.5);
 
-                this.add.text(400, 527, 'Reach the end of each level!', {
+                this.add.text(400, 497, 'Reach the end of each level!', {
                     fontSize: '14px',
                     fill: '#00FF00',
                     fontStyle: 'bold'
                 }).setOrigin(0.5);
 
-                this.add.text(400, 550, 'Level 10: 👹 Epic Boss Battle! 👹 - Earn €2!', {
+                this.add.text(400, 522, 'Level 10: Epic Boss Battle!', {
                     fontSize: '13px',
                     fill: '#FF0000',
                     fontStyle: 'bold'
                 }).setOrigin(0.5);
 
-                this.add.text(400, 570, 'Jump on the boss to damage it!', {
+                this.add.text(400, 544, 'Jump on the boss to damage it!', {
                     fontSize: '12px',
                     fill: '#FFD700'
                 }).setOrigin(0.5);
@@ -556,6 +601,7 @@
             }
 
             create() {
+                pauseButton.classList.remove('show');
                 this.cameras.main.setBackgroundColor('#87CEEB');
 
                 this.add.text(400, 40, 'SELECT LEVEL', {
@@ -653,6 +699,7 @@
             }
 
             create() {
+                pauseButton.classList.remove('show');
                 this.cameras.main.setBackgroundColor('#87CEEB');
 
                 this.add.text(400, 40, 'CHOOSE YOUR SKIN', {
@@ -798,6 +845,10 @@
                 const levelData = this.levelData;
                 const theme = levelData.theme;
 
+                // Show pause button and store reference to this scene
+                pauseButton.classList.add('show');
+                currentGameScene = this;
+
                 // Start background music for this level
                 soundManager.playBackgroundMusic(levelData.background);
 
@@ -810,6 +861,7 @@
                 this.levelCompleted = false;
                 this.isPaused = false;
                 this.isAutoRunner = GameData.currentLevel >= 4; // Auto-run from level 4 onwards
+                this.lastJumpState = false; // For mobile jump detection
 
                 this.cameras.main.setBackgroundColor(theme.sky);
                 this.createBackground(levelData.background, levelData.length);
@@ -926,7 +978,7 @@
                 this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
                 this.input.on('pointerdown', () => this.jump());
 
-                // Pause key listener - using keyboard.on for better reliability
+                // Pause key listener
                 this.input.keyboard.on('keydown-P', () => {
                     if (!this.isGameOver && !this.levelCompleted) {
                         this.togglePause();
@@ -966,7 +1018,12 @@
                 this.resumeButton.setInteractive({ useHandCursor: true });
                 this.resumeButton.on('pointerover', () => { if (this.isPaused) this.resumeButton.fillColor = 0x00DD00; });
                 this.resumeButton.on('pointerout', () => { if (this.isPaused) this.resumeButton.fillColor = 0x00FF00; });
-                this.resumeButton.on('pointerdown', () => { if (this.isPaused) this.togglePause(); });
+                this.resumeButton.on('pointerdown', (pointer) => {
+                    if (this.isPaused) {
+                        pointer.event.stopPropagation();
+                        this.togglePause();
+                    }
+                });
 
                 this.resumeButtonText = this.add.text(400, 350, 'RESUME', {
                     fontSize: '28px',
@@ -976,27 +1033,28 @@
                 this.resumeButtonText.setVisible(false);
                 this.resumeButtonText.setDepth(102);
 
-                this.menuButton = this.add.rectangle(400, 430, 200, 60, 0xFF0000).setScrollFactor(0);
-                this.menuButton.setVisible(false);
-                this.menuButton.setDepth(101);
-                this.menuButton.setInteractive({ useHandCursor: true });
-                this.menuButton.on('pointerover', () => { if (this.isPaused) this.menuButton.fillColor = 0xDD0000; });
-                this.menuButton.on('pointerout', () => { if (this.isPaused) this.menuButton.fillColor = 0xFF0000; });
-                this.menuButton.on('pointerdown', () => {
+                this.quitButton = this.add.rectangle(400, 430, 200, 60, 0xFF0000).setScrollFactor(0);
+                this.quitButton.setVisible(false);
+                this.quitButton.setDepth(101);
+                this.quitButton.setInteractive({ useHandCursor: true });
+                this.quitButton.on('pointerover', () => { if (this.isPaused) this.quitButton.fillColor = 0xDD0000; });
+                this.quitButton.on('pointerout', () => { if (this.isPaused) this.quitButton.fillColor = 0xFF0000; });
+                this.quitButton.on('pointerdown', (pointer) => {
                     if (this.isPaused) {
+                        pointer.event.stopPropagation();
                         soundManager.playClick();
                         soundManager.stopBackgroundMusic();
                         this.scene.start('LevelSelectScene');
                     }
                 });
 
-                this.menuButtonText = this.add.text(400, 430, 'QUIT LEVEL', {
+                this.quitButtonText = this.add.text(400, 430, 'QUIT LEVEL', {
                     fontSize: '28px',
                     fill: '#FFF',
                     fontStyle: 'bold'
                 }).setOrigin(0.5).setScrollFactor(0);
-                this.menuButtonText.setVisible(false);
-                this.menuButtonText.setDepth(102);
+                this.quitButtonText.setVisible(false);
+                this.quitButtonText.setDepth(102);
 
                 // Camera
                 this.cameras.main.setBounds(0, 0, levelData.length + 500, 600);
@@ -1013,14 +1071,18 @@
 
                 this.livesText = this.add.text(16, 16, 'Lives: 5', {
                     fontSize: '24px',
-                    fill: '#000',
-                    fontStyle: 'bold'
+                    fill: '#FFF',
+                    fontStyle: 'bold',
+                    stroke: '#000',
+                    strokeThickness: 4
                 }).setScrollFactor(0);
 
                 this.scoreText = this.add.text(16, 50, 'Score: 0', {
                     fontSize: '20px',
-                    fill: '#000',
-                    fontStyle: 'bold'
+                    fill: '#FFF',
+                    fontStyle: 'bold',
+                    stroke: '#000',
+                    strokeThickness: 3
                 }).setScrollFactor(0);
 
                 // Show auto-runner indicator for levels 4+
@@ -1040,6 +1102,41 @@
                     fill: '#000',
                     fontStyle: 'bold'
                 }).setOrigin(1, 1).setScrollFactor(0);
+            }
+
+            togglePause() {
+                this.isPaused = !this.isPaused;
+                soundManager.playClick();
+
+                if (this.isPaused) {
+                    // Pause the game
+                    this.physics.pause();
+                    soundManager.stopBackgroundMusic();
+                    pauseButton.textContent = '▶ Resume';
+
+                    // Show pause menu
+                    this.pauseOverlay.setVisible(true);
+                    this.pauseText.setVisible(true);
+                    this.pauseInstructions.setVisible(true);
+                    this.resumeButton.setVisible(true);
+                    this.resumeButtonText.setVisible(true);
+                    this.quitButton.setVisible(true);
+                    this.quitButtonText.setVisible(true);
+                } else {
+                    // Resume the game
+                    this.physics.resume();
+                    soundManager.playBackgroundMusic(this.levelData.background);
+                    pauseButton.textContent = '⏸ Pause';
+
+                    // Hide pause menu
+                    this.pauseOverlay.setVisible(false);
+                    this.pauseText.setVisible(false);
+                    this.pauseInstructions.setVisible(false);
+                    this.resumeButton.setVisible(false);
+                    this.resumeButtonText.setVisible(false);
+                    this.quitButton.setVisible(false);
+                    this.quitButtonText.setVisible(false);
+                }
             }
 
             createBackground(backgroundType, levelLength) {
@@ -1244,19 +1341,21 @@
                     // Automatically move right
                     this.player.body.setVelocityX(this.playerSpeed);
                 } else {
-                    // Manual control for levels 1-3
-                    if (this.cursors.left.isDown) {
+                    // Manual control for levels 1-3 (keyboard + mobile)
+                    if (this.cursors.left.isDown || MobileControls.left) {
                         this.player.body.setVelocityX(-this.playerSpeed);
-                    } else if (this.cursors.right.isDown) {
+                    } else if (this.cursors.right.isDown || MobileControls.right) {
                         this.player.body.setVelocityX(this.playerSpeed);
                     } else {
                         this.player.body.setVelocityX(0);
                     }
                 }
 
-                if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+                // Jump (keyboard + mobile)
+                if (Phaser.Input.Keyboard.JustDown(this.spaceKey) || (MobileControls.jump && !this.lastJumpState)) {
                     this.jump();
                 }
+                this.lastJumpState = MobileControls.jump;
 
                 if (this.player.body.touching.down) {
                     this.hasDoubleJumped = false;
@@ -1274,39 +1373,6 @@
                     soundManager.playDoubleJump();
                     this.player.body.setVelocityY(-450);
                     this.hasDoubleJumped = true;
-                }
-            }
-
-            togglePause() {
-                this.isPaused = !this.isPaused;
-                soundManager.playClick();
-
-                if (this.isPaused) {
-                    // Pause the game
-                    this.physics.pause();
-                    soundManager.stopBackgroundMusic();
-
-                    // Show pause menu
-                    this.pauseOverlay.setVisible(true);
-                    this.pauseText.setVisible(true);
-                    this.pauseInstructions.setVisible(true);
-                    this.resumeButton.setVisible(true);
-                    this.resumeButtonText.setVisible(true);
-                    this.menuButton.setVisible(true);
-                    this.menuButtonText.setVisible(true);
-                } else {
-                    // Resume the game
-                    this.physics.resume();
-                    soundManager.playBackgroundMusic(this.levelData.background);
-
-                    // Hide pause menu
-                    this.pauseOverlay.setVisible(false);
-                    this.pauseText.setVisible(false);
-                    this.pauseInstructions.setVisible(false);
-                    this.resumeButton.setVisible(false);
-                    this.resumeButtonText.setVisible(false);
-                    this.menuButton.setVisible(false);
-                    this.menuButtonText.setVisible(false);
                 }
             }
 
@@ -1551,7 +1617,6 @@
                 const firstTimeComplete = !GameData.gameCompleted;
                 if (firstTimeComplete) {
                     GameData.gameCompleted = true;
-                    GameData.euroBucks += 2.00;
                     GameData.saveData();
                 }
 
@@ -1579,12 +1644,9 @@
                     this.bossHealthBar.destroy();
 
                     // Show victory message
-                    let victoryMessage = '👹 BOSS DEFEATED! 👹\n\n🏆 YOU WIN! 🏆';
+                    let victoryMessage = 'BOSS DEFEATED!\n\nYOU WIN!';
                     if (bossUnlocked) {
-                        victoryMessage += '\n\n🔓 Boss Skin Unlocked! 🔓';
-                    }
-                    if (firstTimeComplete) {
-                        victoryMessage += '\n\n💰 You earned €2.00! 💰';
+                        victoryMessage += '\n\nBoss Skin Unlocked!';
                     }
 
                     this.add.text(400, 300, victoryMessage, {
@@ -1605,6 +1667,12 @@
             height: 600,
             parent: 'game-container',
             backgroundColor: '#87CEEB',
+            scale: {
+                mode: Phaser.Scale.NONE,
+                autoCenter: Phaser.Scale.CENTER_BOTH,
+                width: 800,
+                height: 600
+            },
             physics: {
                 default: 'arcade',
                 arcade: {
