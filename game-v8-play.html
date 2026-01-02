@@ -389,18 +389,19 @@
             euroBucks: parseFloat(localStorage.getItem('euroBucks')) || 0,
             gameCompleted: localStorage.getItem('gameCompleted') === 'true',
             currentLevel: 1,
+            currentLives: 5,
 
             levels: {
-                1: { name: 'Forest Realm', theme: { sky: '#87CEEB', ground: '#8B4513', obstacle: '#228B22' }, length: 1500, obstacles: [300, 500, 700, 900, 1200], background: 'forest' },
-                2: { name: 'Desert Wasteland', theme: { sky: '#FFE4B5', ground: '#DEB887', obstacle: '#CD853F' }, length: 1800, obstacles: [300, 550, 750, 1000, 1250, 1500], background: 'desert' },
-                3: { name: 'Ice Mountains', theme: { sky: '#B0E0E6', ground: '#E0FFFF', obstacle: '#87CEEB' }, length: 2000, obstacles: [250, 500, 700, 950, 1200, 1450, 1700], background: 'ice' },
-                4: { name: 'Volcanic Caves', theme: { sky: '#2F4F4F', ground: '#696969', obstacle: '#DC143C' }, length: 2200, obstacles: [300, 500, 700, 900, 1100, 1400, 1700, 1950], background: 'volcano' },
-                5: { name: 'Sky Kingdom', theme: { sky: '#87CEFA', ground: '#FFFAF0', obstacle: '#DDA0DD' }, length: 2400, obstacles: [250, 480, 680, 900, 1150, 1380, 1620, 1850, 2100], background: 'sky' },
-                6: { name: 'Neon City', theme: { sky: '#191970', ground: '#2F4F4F', obstacle: '#FF1493' }, length: 2600, obstacles: [300, 520, 740, 960, 1180, 1400, 1650, 1900, 2150, 2400], background: 'neon' },
-                7: { name: 'Toxic Swamp', theme: { sky: '#556B2F', ground: '#6B8E23', obstacle: '#9ACD32' }, length: 2800, obstacles: [280, 500, 720, 940, 1160, 1400, 1640, 1880, 2140, 2400, 2600], background: 'swamp' },
-                8: { name: 'Crystal Caves', theme: { sky: '#483D8B', ground: '#9370DB', obstacle: '#BA55D3' }, length: 3000, obstacles: [300, 500, 720, 920, 1140, 1380, 1600, 1840, 2080, 2340, 2600, 2850], background: 'crystal' },
-                9: { name: 'Final Dimension', theme: { sky: '#000000', ground: '#1C1C1C', obstacle: '#FFD700' }, length: 3500, obstacles: [250, 450, 650, 850, 1050, 1280, 1510, 1740, 1970, 2200, 2450, 2700, 2950, 3200], background: 'space' },
-                10: { name: '👹 BOSS BATTLE 👹', theme: { sky: '#330000', ground: '#660000', obstacle: '#FF0000' }, length: 4000, obstacles: [400, 650, 900, 1150, 1400, 1650, 1900, 2150, 2400, 2650, 2900, 3150], background: 'boss', isBoss: true }
+                1: { name: 'Forest Realm', theme: { sky: '#87CEEB', ground: '#8B4513', obstacle: '#228B22' }, length: 1500, obstacles: [400, 800, 1200], background: 'forest' },
+                2: { name: 'Desert Wasteland', theme: { sky: '#FFE4B5', ground: '#DEB887', obstacle: '#CD853F' }, length: 1800, obstacles: [400, 850, 1300, 1700], background: 'desert' },
+                3: { name: 'Ice Mountains', theme: { sky: '#B0E0E6', ground: '#E0FFFF', obstacle: '#87CEEB' }, length: 2000, obstacles: [350, 800, 1250, 1700], background: 'ice' },
+                4: { name: 'Volcanic Caves', theme: { sky: '#2F4F4F', ground: '#696969', obstacle: '#DC143C' }, length: 2200, obstacles: [400, 900, 1400, 1900], background: 'volcano' },
+                5: { name: 'Sky Kingdom', theme: { sky: '#87CEFA', ground: '#FFFAF0', obstacle: '#DDA0DD' }, length: 2400, obstacles: [400, 900, 1400, 1900, 2200], background: 'sky' },
+                6: { name: 'Neon City', theme: { sky: '#191970', ground: '#2F4F4F', obstacle: '#FF1493' }, length: 2600, obstacles: [400, 950, 1500, 2050, 2450], background: 'neon' },
+                7: { name: 'Toxic Swamp', theme: { sky: '#556B2F', ground: '#6B8E23', obstacle: '#9ACD32' }, length: 2800, obstacles: [400, 950, 1500, 2050, 2600], background: 'swamp' },
+                8: { name: 'Crystal Caves', theme: { sky: '#483D8B', ground: '#9370DB', obstacle: '#BA55D3' }, length: 3000, obstacles: [400, 1000, 1600, 2200, 2800], background: 'crystal' },
+                9: { name: 'Final Dimension', theme: { sky: '#000000', ground: '#1C1C1C', obstacle: '#FFD700' }, length: 3500, obstacles: [400, 1000, 1600, 2200, 2800, 3300], background: 'space' },
+                10: { name: '👹 BOSS BATTLE 👹', theme: { sky: '#330000', ground: '#660000', obstacle: '#FF0000' }, length: 4000, obstacles: [500, 1100, 1700, 2300, 2900, 3500], background: 'boss', isBoss: true }
             },
 
             skins: {
@@ -634,6 +635,7 @@
                         bg.on('pointerdown', () => {
                             soundManager.playClick();
                             GameData.currentLevel = parseInt(levelNum);
+                            GameData.currentLives = 5;
                             this.scene.start('GameScene');
                         });
                     }
@@ -822,7 +824,7 @@
                 soundManager.playBackgroundMusic(levelData.background);
 
                 this.score = 0;
-                this.lives = 5;
+                this.lives = GameData.currentLives;
                 this.playerSpeed = 300;
                 this.canDoubleJump = true;
                 this.hasDoubleJumped = false;
@@ -1038,7 +1040,7 @@
                     strokeThickness: 3
                 }).setOrigin(0.5, 0).setScrollFactor(0);
 
-                this.livesText = this.add.text(16, 16, 'Lives: 5', {
+                this.livesText = this.add.text(16, 16, 'Lives: ' + this.lives, {
                     fontSize: '24px',
                     fill: '#FFF',
                     fontStyle: 'bold',
@@ -1346,8 +1348,8 @@
             }
 
             createObstacle(xPosition, color) {
-                const height = Phaser.Math.Between(30, 60);
-                const obstacle = this.add.rectangle(xPosition, 550 - height / 2, 30, height, parseInt(color.replace('#', '0x')));
+                const height = Phaser.Math.Between(70, 110);
+                const obstacle = this.add.rectangle(xPosition, 550 - height / 2, 20, height, parseInt(color.replace('#', '0x')));
                 this.obstacles.add(obstacle);
             }
 
@@ -1423,6 +1425,7 @@
                     nextButton.on('pointerout', () => { nextButton.fillColor = 0x00FF00; });
                     nextButton.on('pointerdown', () => {
                         soundManager.playClick();
+                        GameData.currentLives = this.lives;
                         GameData.currentLevel++;
                         this.scene.restart();
                     });
@@ -1440,6 +1443,7 @@
                 menuButton.on('pointerout', () => { menuButton.fillColor = 0xFF0000; });
                 menuButton.on('pointerdown', () => {
                     soundManager.playClick();
+                    GameData.currentLives = 5;
                     this.scene.start('LevelSelectScene');
                 });
             }
@@ -1491,6 +1495,7 @@
                 retryButton.on('pointerout', () => { retryButton.fillColor = 0x00FF00; });
                 retryButton.on('pointerdown', () => {
                     soundManager.playClick();
+                    GameData.currentLives = 5;
                     this.scene.restart();
                 });
 
@@ -1506,6 +1511,7 @@
                 menuButton.on('pointerout', () => { menuButton.fillColor = 0xFF0000; });
                 menuButton.on('pointerdown', () => {
                     soundManager.playClick();
+                    GameData.currentLives = 5;
                     this.scene.start('LevelSelectScene');
                 });
             }
