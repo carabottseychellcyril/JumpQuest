@@ -908,9 +908,8 @@
                     this.boss = this.add.rectangle(levelData.length - 600, 300, 120, 120, 0xFF0000);
                     this.physics.add.existing(this.boss);
                     this.boss.body.setAllowGravity(false);
-                    this.boss.body.setImmovable(true);
-                    this.bossDirection = 1; // 1 = down, -1 = up
-                    this.bossSpeed = 250; // Increased speed for harder difficulty
+                    this.boss.body.setCollideWorldBounds(false);
+                    this.bossSpeed = 200; // Boss chase speed
 
                     // Boss health (increased for harder difficulty)
                     this.bossHealth = 25;
@@ -1276,16 +1275,25 @@
                     const dy = this.player.y - this.boss.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
 
-                    if (distance > 50) {
-                        // Move towards player
-                        const moveX = (dx / distance) * this.bossSpeed * (1/60);
-                        const moveY = (dy / distance) * this.bossSpeed * (1/60);
-                        this.boss.x += moveX;
-                        this.boss.y += moveY;
+                    if (distance > 80) {
+                        // Move towards player using velocity
+                        const speed = this.bossSpeed;
+                        this.boss.body.setVelocity(
+                            (dx / distance) * speed,
+                            (dy / distance) * speed
+                        );
+                    } else {
+                        this.boss.body.setVelocity(0, 0);
+                    }
 
-                        // Keep boss within bounds
-                        if (this.boss.y > 480) this.boss.y = 480;
-                        if (this.boss.y < 100) this.boss.y = 100;
+                    // Keep boss within vertical bounds
+                    if (this.boss.y > 480) {
+                        this.boss.y = 480;
+                        this.boss.body.y = 480;
+                    }
+                    if (this.boss.y < 100) {
+                        this.boss.y = 100;
+                        this.boss.body.y = 100;
                     }
 
                     // Update boss eyes position (adjusted for larger boss)
@@ -1360,7 +1368,7 @@
             }
 
             createObstacle(xPosition, color) {
-                const height = Phaser.Math.Between(120, 180);
+                const height = Phaser.Math.Between(250, 350);
                 const obstacle = this.add.rectangle(xPosition, 550 - height / 2, 20, height, parseInt(color.replace('#', '0x')));
                 this.obstacles.add(obstacle);
             }
