@@ -1,7 +1,7 @@
 {
-  "name": "jump-quest",
+  "name": "jump-legends",
   "version": "0.1.0",
-  "description": "Jump Quest - A themed endless runner platformer",
+  "description": "Jump Legends - A themed endless runner platformer",
   "main": "index.html",
   "scripts": {
     "dev": "vite",

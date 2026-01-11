@@ -1,10 +1,10 @@
-# 🎮 JumpQuest
+# 🎮 Jump Legends
 
 A challenging platformer game with 10 unique levels, unlockable skins, and an epic boss battle!
 
 ## 🎯 Play Now
 
-**[Play JumpQuest Online](https://carabottseychellcyril.github.io/JumpQuest/game-v8.html)**
+**[Play Jump Legends Online](https://carabottseychellcyril.github.io/JumpQuest/game-v8.html)**
 
 ## 🎮 Features
 

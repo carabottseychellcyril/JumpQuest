@@ -1,4 +1,4 @@
-# Jump Quest - Game Design Document
+# Jump Legends - Game Design Document
 
 ## High Concept
 A themed endless runner platformer with double-jump mechanics, progression systems, and handcrafted levels. Players navigate through 30-50 unique levels across different themes, unlocking abilities and competing for high scores.
