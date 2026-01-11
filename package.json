@@ -1,7 +1,7 @@
 {
-  "name": "jump-legends",
+  "name": "qabza-sa-lahhar",
   "version": "0.1.0",
-  "description": "Jump Legends - A themed endless runner platformer",
+  "description": "Qabża Sa L-Aħħar - A themed endless runner platformer",
   "main": "index.html",
   "scripts": {
     "dev": "vite",

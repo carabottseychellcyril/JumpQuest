@@ -1,10 +1,10 @@
-# 🎮 Jump Legends
+# 🎮 Qabża Sa L-Aħħar
 
 A challenging platformer game with 10 unique levels, unlockable skins, and an epic boss battle!
 
 ## 🎯 Play Now
 
-**[Play Jump Legends Online](https://carabottseychellcyril.github.io/JumpQuest/game-v8.html)**
+**[Play Qabża Sa L-Aħħar Online](https://carabottseychellcyril.github.io/JumpQuest/game-v8.html)**
 
 ## 🎮 Features
 
