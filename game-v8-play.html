@@ -826,8 +826,8 @@
                 this.score = 0;
                 this.lives = GameData.currentLives;
                 this.playerSpeed = 300;
-                this.canDoubleJump = true;
-                this.hasDoubleJumped = false;
+                this.maxJumps = 3;
+                this.jumpCount = 0;
                 this.isGameOver = false;
                 this.levelCompleted = false;
                 this.isPaused = false;
@@ -862,7 +862,7 @@
                 // Player
                 const selectedSkin = GameData.skins[GameData.selectedSkin];
                 if (selectedSkin.shape === 'square') {
-                    this.player = this.add.rectangle(100, 500, 30, 30, selectedSkin.color);
+                    this.player = this.add.rectangle(100, 500, 15, 15, selectedSkin.color);
                 } else if (selectedSkin.shape === 'circle') {
                     this.player = this.add.circle(100, 500, 15, selectedSkin.color);
                 } else if (selectedSkin.shape === 'triangle') {
@@ -1349,21 +1349,21 @@
                 this.lastJumpState = MobileControls.jump;
 
                 if (this.player.body.touching.down) {
-                    this.hasDoubleJumped = false;
+                    this.jumpCount = 0;
                 }
             }
 
             jump() {
                 if (this.isGameOver || this.levelCompleted || this.isPaused) return;
 
-                if (this.player.body.touching.down) {
-                    soundManager.playJump();
-                    this.player.body.setVelocityY(-500);
-                    this.hasDoubleJumped = false;
-                } else if (this.canDoubleJump && !this.hasDoubleJumped) {
-                    soundManager.playDoubleJump();
+                if (this.jumpCount < this.maxJumps) {
+                    if (this.jumpCount === 0) {
+                        soundManager.playJump();
+                    } else {
+                        soundManager.playDoubleJump();
+                    }
                     this.player.body.setVelocityY(-450);
-                    this.hasDoubleJumped = true;
+                    this.jumpCount++;
                 }
             }
 
