@@ -1368,7 +1368,7 @@
             }
 
             createObstacle(xPosition, color) {
-                const height = Phaser.Math.Between(150, 250);
+                const height = Phaser.Math.Between(60, 120);
                 const obstacle = this.add.rectangle(xPosition, 550 - height / 2, 20, height, parseInt(color.replace('#', '0x')));
                 this.obstacles.add(obstacle);
             }
